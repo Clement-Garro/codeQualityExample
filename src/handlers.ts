@@ -1,5 +1,22 @@
 import { stations, bikes, users, rentals, generateRentalId } from './db';
-import { sleep, log, hasRequiredFields, roundToCents, getLocationInfo, computeFraudScore, computeRentalPrice } from './utils';
+import {
+  sleep,
+  log,
+  hasRequiredFields,
+  roundToCents,
+  getLocationInfo,
+  computeFraudScore,
+  computeDurationMinutes,
+  computeRentalPrice
+} from './utils';
+import {
+  BASE_PRE_AUTHORIZATION_AMOUNT,
+  ELECTRIC_PRE_AUTHORIZATION_SURCHARGE,
+  FRAUD_REFUSAL_SCORE,
+  MINIMUM_CREDIT_TO_RENT,
+  REBALANCING_THRESHOLD_FACTOR,
+  RIDING_MINUTES_PER_KILOMETER
+} from './businessRules';
 import { preAuthorizePayment, capturePayment } from './payment';
 
 export function handleRentBike(req, res) {
@@ -74,15 +91,15 @@ export function handleRentBike(req, res) {
           if (openRentalCount > 0) {
             res.status(409).json({ msg: 'already renting' });
           } else {
-            if (user.credit < 5) {
+            if (user.credit < MINIMUM_CREDIT_TO_RENT) {
               res.status(402).json({ msg: 'not enough credit' });
             } else {
-              let preAuthAmount = 5;
+              let preAuthAmount = BASE_PRE_AUTHORIZATION_AMOUNT;
               if (selectedBike.isElectric === true) {
-                preAuthAmount = preAuthAmount + 2.5;
+                preAuthAmount = preAuthAmount + ELECTRIC_PRE_AUTHORIZATION_SURCHARGE;
               }
               const fraudScore = computeFraudScore(user, preAuthAmount);
-              if (fraudScore >= 100) {
+              if (fraudScore >= FRAUD_REFUSAL_SCORE) {
                 res.status(403).json({ msg: 'refused' });
               } else {
                 let preAuthorization;
@@ -178,25 +195,8 @@ export function handleReturnBike(req, res) {
                 bike = bikes[i];
               }
             }
-            const durationMinutes = Math.floor((Date.now() - rental.startTime) / (1000 * 60));
-            let price = 0;
-            if (durationMinutes <= 30) {
-              price = 1;
-            } else {
-              price = 1 + (durationMinutes - 30) * 0.15;
-            }
-            if (rental.isElectric === true) {
-              price = price + 2.5;
-            }
-            if (durationMinutes > 1440) {
-              price = price + 25;
-            }
-            if (user !== null) {
-              if (user.subscription === 'premium') {
-                price = price * 0.8;
-              }
-            }
-            price = roundToCents(price);
+            const durationMinutes = computeDurationMinutes(rental.startTime, Date.now());
+            const price = computeRentalPrice(durationMinutes, rental.isElectric, user === null ? 'basic' : user.subscription);
             let capturedPayment = null;
             try {
               capturedPayment = capturePayment(user, rental.paymentReference, price);
@@ -208,7 +208,7 @@ export function handleReturnBike(req, res) {
             if (bike !== null) {
               bike.status = 0;
               bike.stationId = returnStation.id;
-              bike.kilometers = bike.kilometers + Math.floor(durationMinutes / 4);
+              bike.kilometers = bike.kilometers + Math.floor(durationMinutes / RIDING_MINUTES_PER_KILOMETER);
               returnStation.bikeIds.push(bike.id);
             }
             let totalDockedBikes = 0;
@@ -216,7 +216,7 @@ export function handleReturnBike(req, res) {
               totalDockedBikes = totalDockedBikes + stations[i].bikeIds.length;
             }
             const averageBikesPerStation = totalDockedBikes / stations.length;
-            if (returnStation.bikeIds.length > averageBikesPerStation * 1.5) {
+            if (returnStation.bikeIds.length > averageBikesPerStation * REBALANCING_THRESHOLD_FACTOR) {
               try {
                 sleep(150);
                 log('INFO', 'rebalancing triggered', returnStation.id);
@@ -294,38 +294,17 @@ export function handleGetRental(req, res) {
         user = users[i];
       }
     }
-    let durationMinutes = 0;
-    if (rental.endTime === null) {
-      durationMinutes = Math.floor((Date.now() - rental.startTime) / (1000 * 60));
-    } else {
-      durationMinutes = Math.floor((rental.endTime - rental.startTime) / (1000 * 60));
-    }
-    let price = 0;
-    if (durationMinutes <= 30) {
-      price = 1;
-    } else {
-      price = 1 + (durationMinutes - 30) * 0.15;
-    }
-    if (rental.isElectric === true) {
-      price = price + 2.5;
-    }
-    if (durationMinutes > 1440) {
-      price = price + 25;
-    }
-    if (user !== null) {
-      if (user.subscription === 'premium') {
-        price = price * 0.8;
-      }
-    }
-    const estimatedPrice = computeRentalPrice(durationMinutes, rental.isElectric, user === null ? 'basic' : user.subscription);
+    const isOpen = rental.endTime === null;
+    const durationMinutes = computeDurationMinutes(rental.startTime, isOpen ? Date.now() : rental.endTime);
+    const price = computeRentalPrice(durationMinutes, rental.isElectric, user === null ? 'basic' : user.subscription);
     res.json({
       msg: 'ok',
       id: rental.id,
       bikeId: rental.bikeId,
       minutes: durationMinutes,
-      price: roundToCents(price),
-      estimate: estimatedPrice,
-      open: rental.endTime === null
+      price: price,
+      estimate: price,
+      open: isOpen
     });
   }
 }

@@ -40,10 +40,10 @@ L'API ne change pas : mêmes routes, mêmes codes HTTP, mêmes réponses JSON. L
 
 Commit : `refactor: single pricing function and named business constants`
 
-- [ ] Faire calculer le prix par une seule fonction dans les 3 endroits (diapo 42, DRY)
-- [ ] Remplacer `30`, `0.15`, `2.5`, `1440`, `25`, `0.8`, `5`, `100`, `40` par des constantes nommées (diapo 45)
-- [ ] Vérifier que les tests passent sans modification
-- [ ] Portes qualité, puis commit
+- [x] Faire calculer le prix par une seule fonction dans les 3 endroits (diapo 42, DRY) ; le calcul de durée, lui aussi copié 3 fois, est extrait dans `computeDurationMinutes`
+- [x] Remplacer `30`, `0.15`, `2.5`, `1440`, `25`, `0.8`, `5`, `100`, `40` par des constantes nommées (diapo 45), ainsi que les poids de fraude, l'usure (`4` min/km), le seuil de rééquilibrage (`1.5`) et les seuils de zone, dans `src/businessRules.ts`
+- [x] Vérifier que les tests passent sans modification (145 verts, aucun fichier de test modifié)
+- [x] Portes qualité (couverture des branches 97,2 % → 97,6 % ; mutation 95,65 % → 95,49 % : mutants tués supprimés avec la duplication, survivants équivalents), puis commit
 
 ### 2b. Types stricts et enums
 

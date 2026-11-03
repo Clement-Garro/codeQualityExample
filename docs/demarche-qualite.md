@@ -84,7 +84,7 @@ Seulement deux, parce qu'ils sont lents (délais réels de plusieurs secondes) :
 
 **Ce que ça a apporté** : au premier passage, presque tout le code était déjà exécuté par les tests, mais le score de mutation n'était que de 92 %. Les mutants survivants ont révélé de vrais trous. Par exemple, le choix du vélo le moins kilométré semblait testé, mais dans les données initiales ce vélo est toujours le dernier de la liste : un code qui prenait simplement le dernier vélo passait aussi les tests. Un test avec des kilométrages modifiés a corrigé ça.
 
-**Score actuel : 95,7 %** (94,9 % avant la correction des défauts), avec un seuil bloquant à 90 % dans `stryker.config.json`. Les mutants restants sont **équivalents**, c'est-à-dire sans effet observable : suppression des délais simulés, noms d'utilisateurs jamais lus, borne `<= 30` ou `< 30` qui donne le même prix à 30 minutes. Les mutants qui survivaient dans le chemin du défaut de pré-autorisation sont détectés depuis sa correction.
+**Score actuel : 95,5 %** (94,9 % avant la correction des défauts, 95,7 % après, 95,5 % après la suppression de la duplication du tarif : les deux copies supprimées contenaient une centaine de mutants tous tués, ce qui fait mécaniquement baisser le pourcentage), avec un seuil bloquant à 90 % dans `stryker.config.json`. Les mutants restants sont **équivalents**, c'est-à-dire sans effet observable : suppression des délais simulés, noms d'utilisateurs jamais lus, borne `<= 30` ou `< 30` qui donne le même prix à 30 minutes, gardes `user === null` qui ne peuvent jamais être vraies (elles disparaîtront avec le typage strict). Les mutants qui survivaient dans le chemin du défaut de pré-autorisation sont détectés depuis sa correction.
 
 `src/index.ts` est exclu : il ne contient que le câblage des routes, et certaines mutations y démarreraient un vrai serveur pendant les tests.
 
@@ -112,10 +112,10 @@ Ils sont corrigés dans un commit `fix:` séparé. Les `.failing` ont été reti
 
 Maintenant que les tests protègent le comportement, le refactoring peut commencer. Par ordre de priorité :
 
-1. **Supprimer la duplication du tarif** (diapo 42, DRY) : une seule fonction de calcul du prix, pour que les copies ne puissent plus diverger.
+1. ~~**Supprimer la duplication du tarif**~~ (diapo 42, DRY) : fait. `computeRentalPrice` est la seule fonction de calcul du prix et `computeDurationMinutes` la seule de calcul de durée.
 2. **Ne plus étouffer les exceptions** (diapo 57) : ne plus ignorer silencieusement un échec de capture (le refus de pré-autorisation est déjà corrigé).
 3. **Rendre les états incohérents impossibles** (diapo 61) : un `enum` pour les statuts, des types `Station`, `Bike`, `User`, `Rental` à la place de `any`, et le mode `strict` de TypeScript.
 4. **Découper les handlers** (diapos 41 et 46) : une dizaine de niveaux de `if` imbriqués, une complexité cyclomatique élevée et plusieurs rôles par fonction (*separation of concern*, diapo 48).
 5. **Remplacer l'attente active par de l'asynchrone** (diapo 58) : aujourd'hui une requête bloque tout le serveur, ce qui pose un problème de performance (diapo 25) visible avec `pnpm load`.
-6. **Extraire les valeurs en dur** (diapo 45) : `30`, `0.15`, `2.5`, `1440`, `25`, `0.8`, `5`, `100` deviennent des constantes nommées.
+6. ~~**Extraire les valeurs en dur**~~ (diapo 45) : fait. Les valeurs métier sont des constantes nommées dans `src/businessRules.ts` (`PRICE_PER_EXTRA_MINUTE`, `MINIMUM_CREDIT_TO_RENT`, `FRAUD_REFUSAL_SCORE`...). Restent volontairement en littéral : les statuts (remplacés par des `enum` à l'étape 3), les délais simulés (supprimés à l'étape 5) et les codes HTTP.
 7. **Utiliser un vrai logger** à la place de `console.log` (diapo 62) et ajouter un linter (diapo 50) pour faire respecter ces règles automatiquement.

@@ -32,7 +32,8 @@ src/
   handlers.ts   # toute la logique métier des 4 routes
   db.ts         # "base de données" en mémoire (stations, vélos, utilisateurs, locations)
   payment.ts    # client de paiement simulé (pré-autorisation, capture, remboursement)
-  utils.ts      # helpers : validation, log, arrondi, tarif, géo/météo, score de fraude
+  utils.ts      # helpers : validation, log, arrondi, durée, tarif, géo/météo, score de fraude
+  businessRules.ts # règles métier nommées : tarif, crédit minimum, pré-autorisation, fraude, usure, zones
 scripts/
   load.ts       # envoie 20 requêtes GET /stations en parallèle et mesure la latence
 tests/
@@ -55,14 +56,14 @@ La stratégie suit la pyramide des tests : beaucoup de tests unitaires rapides, 
 
 Autres commandes : `pnpm test:coverage` (couverture des tests unitaires et d'intégration).
 
-Résultats actuels : 100 % des lignes couvertes, 97 % des branches, **score de mutation de 95,7 %**. Stryker échoue sous 90 % (`stryker.config.json`). Le rapport HTML est généré dans `reports/mutation/index.html`.
+Résultats actuels : 100 % des lignes couvertes, 97,6 % des branches, **score de mutation de 95,5 %**. Stryker échoue sous 90 % (`stryker.config.json`). Le rapport HTML est généré dans `reports/mutation/index.html`.
 
 Points à connaître :
 
 - **Horloge rapide** (`tests/support/fastClock.ts`) : le code attend en boucle active sur `Date.now()`. Les tests unitaires et d'intégration remplacent `Date.now` par une horloge qui avance d'1 ms à chaque lecture : les délais simulés deviennent instantanés et les durées de location sont exactes (`clock.advanceMinutes(45)`).
 - **Isolation** : chaque test recharge les modules (`jest.resetModules()`) et repart des données initiales. L'ordre d'exécution n'a plus d'importance.
 - **Défauts connus** : un défaut trouvé mais pas encore corrigé est décrit par un test marqué `it.failing`, qui exprime le comportement attendu et échoue tant que le bug existe. Il faut retirer `.failing` une fois le bug corrigé. Aucun n'est ouvert aujourd'hui.
-- **Mutants survivants** : ils sont équivalents (suppression des délais simulés, noms jamais lus, borne `<= 30` / `< 30` qui donne le même prix) : aucun ne correspond à un comportement non vérifié.
+- **Mutants survivants** : ils sont équivalents (suppression des délais simulés, noms jamais lus, borne `<= 30` / `< 30` qui donne le même prix, gardes `user === null` qui ne peuvent jamais être vraies) : aucun ne correspond à un comportement non vérifié.
 
 ## Données (en mémoire)
 
@@ -139,8 +140,7 @@ Le prix est arrondi au centime.
 Ce que montre une première lecture, à approfondir :
 
 - **Event loop bloquée** : `sleep()` est une boucle d'attente active. Chaque appel « externe » bloque tout le serveur, donc les requêtes concurrentes sont traitées une par une. C'est précisément ce que `pnpm load` met en évidence (`GET /stations` coûte environ 1,2 s à lui seul).
-- **Calcul du prix dupliqué** : il est écrit trois fois (`handleReturnBike`, `handleGetRental`, `computeRentalPrice`). Les trois copies utilisent désormais le même tarif de 0,15 par minute, mais une seule fonction devrait le calculer.
 - **Erreurs de capture avalées** : un `catch` vide ; le vélo est rendu même si le paiement échoue, et le crédit peut devenir négatif puisque rien ne compare le prix final au montant pré-autorisé.
 - **Handlers monolithiques** : `if/else` imbriqués sur une dizaine de niveaux, recherches linéaires répétées, aucune séparation entre accès aux données, règles métier et HTTP.
 - **Typage désactivé** : `strict: false`, paramètres non typés, `rentals: any[]`.
-- **Divers** : port 3000 codé en dur, codes de statut des vélos sous forme de nombres magiques, tri exécuté dans la boucle de `handleStations`, logs `console.log` non structurés.
+- **Divers** : port 3000 codé en dur, codes de statut des vélos et des locations sous forme de nombres magiques, tri exécuté dans la boucle de `handleStations`, logs `console.log` non structurés.
