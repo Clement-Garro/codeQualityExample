@@ -85,12 +85,13 @@ export function handleRentBike(req, res) {
               if (fraudScore >= 100) {
                 res.status(403).json({ msg: 'refused' });
               } else {
-                let preAuthorization = null;
-                let preAuthError = null;
+                let preAuthorization;
                 try {
                   preAuthorization = preAuthorizePayment(user, preAuthAmount);
                 } catch (error) {
-                  preAuthError = error;
+                  log('WARN', 'payment declined', { userId: user.id, amount: preAuthAmount, reason: error.message });
+                  res.status(402).json({ msg: 'payment declined' });
+                  return;
                 }
                 const rental = {
                   id: generateRentalId(),
@@ -100,7 +101,7 @@ export function handleRentBike(req, res) {
                   endTime: null,
                   endStationId: null,
                   startTime: Date.now(),
-                  paymentReference: preAuthorization === null ? null : preAuthorization.reference,
+                  paymentReference: preAuthorization.reference,
                   preAuthAmount: preAuthAmount,
                   isElectric: selectedBike.isElectric,
                   status: 1
@@ -118,18 +119,14 @@ export function handleRentBike(req, res) {
                   sleep(100);
                   log('INFO', 'rental created', rental.id);
                 } catch (error) {}
-                if (preAuthError !== null) {
-                  res.send('ok');
-                } else {
-                  res.json({
-                    msg: 'ok',
-                    rentalId: rental.id,
-                    bikeId: selectedBike.id,
-                    station: station.name,
-                    preAuth: roundToCents(preAuthAmount),
-                    ref: rental.paymentReference
-                  });
-                }
+                res.json({
+                  msg: 'ok',
+                  rentalId: rental.id,
+                  bikeId: selectedBike.id,
+                  station: station.name,
+                  preAuth: roundToCents(preAuthAmount),
+                  ref: rental.paymentReference
+                });
               }
             }
           }

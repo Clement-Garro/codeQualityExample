@@ -73,7 +73,7 @@ export function computeRentalPrice(durationMinutes, isElectric, subscription) {
   if (durationMinutes <= 30) {
     price = 1;
   } else {
-    price = 1 + (durationMinutes - 30) * 0.14;
+    price = 1 + (durationMinutes - 30) * 0.15;
   }
   if (isElectric === true) {
     price = price + 2.5;

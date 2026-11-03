@@ -48,21 +48,21 @@ La stratégie suit la pyramide des tests : beaucoup de tests unitaires rapides, 
 
 | Niveau | Commande | Nombre | Ce qui est testé |
 |---|---|---|---|
-| Unitaire | `pnpm test:unit` | 126 | Chaque fonction isolément ; dans les handlers, le paiement (service externe) est mocké |
-| Intégration | `pnpm test:integration` | 11 | L'application Express réelle avec tous ses modules, via supertest, sans mock |
+| Unitaire | `pnpm test:unit` | 130 | Chaque fonction isolément ; dans les handlers, le paiement (service externe) est mocké |
+| Intégration | `pnpm test:integration` | 13 | L'application Express réelle avec tous ses modules, via supertest, sans mock |
 | E2E | `pnpm test:e2e` | 2 | Un vrai serveur HTTP appelé avec `fetch`, horloge et délais réels |
 | Mutation | `pnpm test:mutation` | | Stryker modifie le code source et vérifie que les tests unitaires et d'intégration détectent chaque modification |
 
 Autres commandes : `pnpm test:coverage` (couverture des tests unitaires et d'intégration).
 
-Résultats actuels : 100 % des lignes couvertes, 97 % des branches, **score de mutation de 94,9 %**. Stryker échoue sous 90 % (`stryker.config.json`). Le rapport HTML est généré dans `reports/mutation/index.html`.
+Résultats actuels : 100 % des lignes couvertes, 97 % des branches, **score de mutation de 95,7 %**. Stryker échoue sous 90 % (`stryker.config.json`). Le rapport HTML est généré dans `reports/mutation/index.html`.
 
 Points à connaître :
 
 - **Horloge rapide** (`tests/support/fastClock.ts`) : le code attend en boucle active sur `Date.now()`. Les tests unitaires et d'intégration remplacent `Date.now` par une horloge qui avance d'1 ms à chaque lecture : les délais simulés deviennent instantanés et les durées de location sont exactes (`clock.advanceMinutes(45)`).
 - **Isolation** : chaque test recharge les modules (`jest.resetModules()`) et repart des données initiales. L'ordre d'exécution n'a plus d'importance.
-- **Défauts connus** : les tests marqués `it.failing` décrivent le comportement attendu et échouent tant que le bug existe. Il faut retirer `.failing` une fois le bug corrigé.
-- **Mutants survivants** : ils sont équivalents (suppression des délais simulés, noms jamais lus, borne `<= 30` / `< 30` qui donne le même prix) ou situés dans le chemin du défaut de pré-autorisation. Ils seront tués quand ce défaut sera corrigé.
+- **Défauts connus** : un défaut trouvé mais pas encore corrigé est décrit par un test marqué `it.failing`, qui exprime le comportement attendu et échoue tant que le bug existe. Il faut retirer `.failing` une fois le bug corrigé. Aucun n'est ouvert aujourd'hui.
+- **Mutants survivants** : ils sont équivalents (suppression des délais simulés, noms jamais lus, borne `<= 30` / `< 30` qui donne le même prix) : aucun ne correspond à un comportement non vérifié.
 
 ## Données (en mémoire)
 
@@ -90,7 +90,7 @@ Déroulé :
 3. Refuse si l'utilisateur a déjà une location en cours (409).
 4. Refuse si le crédit est inférieur à 5 (402).
 5. Calcule un score de fraude ; refuse à partir de 100, ce qui arrive en pratique pour un utilisateur sur liste noire (403).
-6. Pré-autorise **5** (ou **7,50** pour un vélo électrique) auprès du service de paiement.
+6. Pré-autorise **5** (ou **7,50** pour un vélo électrique) auprès du service de paiement. Si la pré-autorisation est refusée (par exemple crédit inférieur à 7,50 pour un vélo électrique), journalise le refus et répond `402 { "msg": "payment declined" }` sans rien modifier.
 7. Crée la location, passe le vélo en « loué » et le retire de la station.
 
 Réponse : `{ msg, rentalId, bikeId, station, preAuth, ref }`
@@ -139,8 +139,7 @@ Le prix est arrondi au centime.
 Ce que montre une première lecture, à approfondir :
 
 - **Event loop bloquée** : `sleep()` est une boucle d'attente active. Chaque appel « externe » bloque tout le serveur, donc les requêtes concurrentes sont traitées une par une. C'est précisément ce que `pnpm load` met en évidence (`GET /stations` coûte environ 1,2 s à lui seul).
-- **Calcul du prix dupliqué et incohérent** : il est écrit trois fois (`handleReturn`, `handleRentalById`, `priceOf`), et `priceOf` utilise 0,14 par minute au lieu de 0,15. Le champ `estimate` de `GET /rentals/:id` ne correspond donc pas à `price`.
-- **Échec de pré-autorisation ignoré** : si `preAuth` échoue (par exemple crédit inférieur à 7,50 pour un vélo électrique), la location est quand même créée et l'API répond `ok` en texte brut, sans référence de paiement.
+- **Calcul du prix dupliqué** : il est écrit trois fois (`handleReturnBike`, `handleGetRental`, `computeRentalPrice`). Les trois copies utilisent désormais le même tarif de 0,15 par minute, mais une seule fonction devrait le calculer.
 - **Erreurs de capture avalées** : un `catch` vide ; le vélo est rendu même si le paiement échoue, et le crédit peut devenir négatif puisque rien ne compare le prix final au montant pré-autorisé.
 - **Handlers monolithiques** : `if/else` imbriqués sur une dizaine de niveaux, recherches linéaires répétées, aucune séparation entre accès aux données, règles métier et HTTP.
 - **Typage désactivé** : `strict: false`, paramètres non typés, `rentals: any[]`.

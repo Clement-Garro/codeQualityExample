@@ -138,9 +138,7 @@ describe('computeRentalPrice', () => {
     expect(priceDifference).toBeLessThan(26);
   });
 
-  // Known defect: the estimate uses 0.14 per minute while billing (handleReturnBike) uses 0.15.
-  // Remove ".failing" once the price calculation is shared.
-  it.failing('uses the billing rate of 0.15 per minute after the first 30 minutes', () => {
+  it('uses the billing rate of 0.15 per minute after the first 30 minutes', () => {
     expect(computeRentalPrice(45, false, 'basic')).toBe(3.25);
   });
 });

@@ -85,6 +85,29 @@ describe('rental lifecycle through the HTTP API', () => {
     expect(republique.free).toBe(3);
   });
 
+  it('refuses the rental when the real payment gateway declines the pre-authorization', async () => {
+    // 6 of credit: enough to pass the 5 minimum, not enough for the 7.50 electric pre-authorization.
+    db.users.find((user) => user.id === CAROL).credit = 6;
+
+    const response = await request(app).post('/rent').send({ userId: CAROL, stationId: REPUBLIQUE, bikeId: 4 });
+
+    expect(response.status).toBe(402);
+    expect(response.body).toEqual({ msg: 'payment declined' });
+    expect(db.rentals).toHaveLength(0);
+    const republique = (await request(app).get('/stations')).body[0];
+    expect(republique.bikes.map((bike) => bike.id)).toContain(4);
+  });
+
+  it('lets a declined user rent a cheaper classic bike instead', async () => {
+    db.users.find((user) => user.id === CAROL).credit = 6;
+    await request(app).post('/rent').send({ userId: CAROL, stationId: REPUBLIQUE, bikeId: 4 });
+
+    const response = await request(app).post('/rent').send({ userId: CAROL, stationId: REPUBLIQUE, bikeId: 1 });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ msg: 'ok', rentalId: 1, bikeId: 1, preAuth: 5 });
+  });
+
   it('charges the user only once when the same bike is returned twice', async () => {
     const rentalId = (await request(app).post('/rent').send({ userId: CAROL, stationId: REPUBLIQUE })).body.rentalId;
     const firstReturn = await request(app).post('/return').send({ rentalId, stationId: BASTILLE });

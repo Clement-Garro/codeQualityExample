@@ -58,8 +58,8 @@ Plus un test est haut dans la pyramide, plus il est lent, fragile et difficile �
 
 | Niveau | Nombre | Isole quoi | Durée | Ce qu'il prouve |
 |---|---|---|---|---|
-| Unitaire | 126 | Une fonction ; le paiement (service externe) est mocké | ms | Chaque règle métier est correcte |
-| Intégration | 11 | Rien : l'app Express réelle, via supertest | ms | Les modules fonctionnent ensemble (routage, parsing JSON, paiement réel) |
+| Unitaire | 130 | Une fonction ; le paiement (service externe) est mocké | ms | Chaque règle métier est correcte |
+| Intégration | 13 | Rien : l'app Express réelle, via supertest | ms | Les modules fonctionnent ensemble (routage, parsing JSON, paiement réel) |
 | E2E | 2 | Rien : un vrai serveur HTTP, horloge réelle | secondes | Un parcours utilisateur complet fonctionne |
 | Mutation | | | minutes | Les tests détectent réellement les erreurs |
 
@@ -84,10 +84,7 @@ Seulement deux, parce qu'ils sont lents (délais réels de plusieurs secondes) :
 
 **Ce que ça a apporté** : au premier passage, presque tout le code était déjà exécuté par les tests, mais le score de mutation n'était que de 92 %. Les mutants survivants ont révélé de vrais trous. Par exemple, le choix du vélo le moins kilométré semblait testé, mais dans les données initiales ce vélo est toujours le dernier de la liste : un code qui prenait simplement le dernier vélo passait aussi les tests. Un test avec des kilométrages modifiés a corrigé ça.
 
-**Score actuel : 94,9 %**, avec un seuil bloquant à 90 % dans `stryker.config.json`. Les mutants restants sont :
-
-- **équivalents**, c'est-à-dire sans effet observable : suppression des délais simulés, noms d'utilisateurs jamais lus, borne `<= 30` ou `< 30` qui donne le même prix à 30 minutes ;
-- **ou situés dans le chemin du défaut de pré-autorisation** (voir plus bas). Ils seront détectés quand ce défaut sera corrigé.
+**Score actuel : 95,7 %** (94,9 % avant la correction des défauts), avec un seuil bloquant à 90 % dans `stryker.config.json`. Les mutants restants sont **équivalents**, c'est-à-dire sans effet observable : suppression des délais simulés, noms d'utilisateurs jamais lus, borne `<= 30` ou `< 30` qui donne le même prix à 30 minutes. Les mutants qui survivaient dans le chemin du défaut de pré-autorisation sont détectés depuis sa correction.
 
 `src/index.ts` est exclu : il ne contient que le câblage des routes, et certaines mutations y démarreraient un vrai serveur pendant les tests.
 
@@ -99,22 +96,24 @@ Seulement deux, parce qu'ils sont lents (délais réels de plusieurs secondes) :
 - **Pas de valeurs en dur** (diapo 45) : les identifiants des données de test sont nommés (`ALICE`, `REPUBLIQUE`, `ELECTRIC_BIKE`) plutôt que d'écrire `1` ou `4` partout.
 - **Pas de duplication** (diapo 42) : les helpers communs (`rentBike`, `returnBike`, `rentForMinutes`) et les tests paramétrés (`it.each`) évitent de répéter la même mise en place dans des dizaines de tests.
 
-## Défauts identifiés, non corrigés
+## Défauts identifiés puis corrigés
 
-Ces bugs ont été trouvés mais pas corrigés, pour ne pas mélanger correction et mise en place des tests. Chacun est décrit par un test marqué `it.failing` : le test exprime le comportement attendu et échoue tant que le bug existe, ce qui garde la suite verte tout en rendant le bug visible. Une fois le bug corrigé, on retire `.failing`.
+Ces bugs ont été trouvés pendant la mise en place des tests, mais pas corrigés tout de suite, pour ne pas mélanger correction et mise en place des tests. Chacun a d'abord été décrit par un test marqué `it.failing` : le test exprimait le comportement attendu et échouait tant que le bug existait, ce qui gardait la suite verte tout en rendant le bug visible.
 
-| Défaut | Règle enfreinte | Test |
-|---|---|---|
-| Une location est créée même si la pré-autorisation du paiement échoue, et l'API répond `ok` | Une exception ne doit jamais être étouffée (diapo 57) ; *Fail fast* (diapo 48) | `handlers.test.ts` : *refuses the rental when the payment pre-authorization fails* |
-| L'estimation de `GET /rentals/:id` diffère du prix facturé | Duplication (diapo 42) : le tarif est codé trois fois, une copie utilise 0,14 au lieu de 0,15 | `handlers.test.ts` : *gives an estimate equal to the price of the rental* |
-| `computeRentalPrice` utilise un tarif différent de la facturation | Même cause | `utils.test.ts` : *uses the billing rate of 0.15 per minute* |
+Ils sont corrigés dans un commit `fix:` séparé. Les `.failing` ont été retirés.
+
+| Défaut | Règle enfreinte | Correction | Test |
+|---|---|---|---|
+| Une location est créée même si la pré-autorisation du paiement échoue, et l'API répond `ok` | Une exception ne doit jamais être étouffée (diapo 57) ; *Fail fast* (diapo 48) | Réponse `402 payment declined` avant toute modification des données, refus journalisé | `handlers.test.ts` : *when the payment pre-authorization is declined* ; `rental-api.test.ts` : *refuses the rental when the real payment gateway declines the pre-authorization* |
+| L'estimation de `GET /rentals/:id` diffère du prix facturé | Duplication (diapo 42) : le tarif est codé trois fois, une copie utilise 0,14 au lieu de 0,15 | Tarif de 0,15 partout | `handlers.test.ts` : *gives an estimate equal to the price of the rental* |
+| `computeRentalPrice` utilise un tarif différent de la facturation | Même cause | Même correction | `utils.test.ts` : *uses the billing rate of 0.15 per minute* |
 
 ## Prochaines étapes
 
 Maintenant que les tests protègent le comportement, le refactoring peut commencer. Par ordre de priorité :
 
-1. **Supprimer la duplication du tarif** (diapo 42, DRY) : une seule fonction de calcul du prix, ce qui corrige deux des défauts ci-dessus.
-2. **Ne plus étouffer les exceptions** (diapo 57) : refuser la location si la pré-autorisation échoue, et ne plus ignorer silencieusement un échec de capture.
+1. **Supprimer la duplication du tarif** (diapo 42, DRY) : une seule fonction de calcul du prix, pour que les copies ne puissent plus diverger.
+2. **Ne plus étouffer les exceptions** (diapo 57) : ne plus ignorer silencieusement un échec de capture (le refus de pré-autorisation est déjà corrigé).
 3. **Rendre les états incohérents impossibles** (diapo 61) : un `enum` pour les statuts, des types `Station`, `Bike`, `User`, `Rental` à la place de `any`, et le mode `strict` de TypeScript.
 4. **Découper les handlers** (diapos 41 et 46) : une dizaine de niveaux de `if` imbriqués, une complexité cyclomatique élevée et plusieurs rôles par fonction (*separation of concern*, diapo 48).
 5. **Remplacer l'attente active par de l'asynchrone** (diapo 58) : aujourd'hui une requête bloque tout le serveur, ce qui pose un problème de performance (diapo 25) visible avec `pnpm load`.

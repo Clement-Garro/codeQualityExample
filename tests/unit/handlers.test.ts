@@ -583,21 +583,52 @@ describe('handleGetRental', () => {
   });
 });
 
-// Known defects: these tests describe the expected behaviour and currently fail.
-// it.failing keeps the suite green while the bug exists; remove ".failing" once it is fixed.
-describe('known defects', () => {
-  it.failing('refuses the rental when the payment pre-authorization fails', () => {
+describe('handleRentBike when the payment pre-authorization is declined', () => {
+  beforeEach(() => {
     payment.preAuthorizePayment.mockImplementation(() => {
       throw new Error('insufficient funds');
     });
+  });
 
+  it('refuses the rental with 402 payment declined', () => {
     const response = rentBike({ userId: CAROL, stationId: REPUBLIQUE });
 
     expect(response.statusCode).toBe(402);
+    expect(response.body).toEqual({ msg: 'payment declined' });
+  });
+
+  it('does not record any rental', () => {
+    rentBike({ userId: CAROL, stationId: REPUBLIQUE });
+
     expect(db.rentals).toHaveLength(0);
   });
 
-  it.failing('gives an estimate equal to the price of the rental', () => {
+  it('leaves the bike available at its station', () => {
+    rentBike({ userId: CAROL, stationId: REPUBLIQUE, bikeId: ELECTRIC_BIKE });
+
+    expect(findBike(ELECTRIC_BIKE).status).toBe(0);
+    expect(findStation(REPUBLIQUE).bikeIds).toEqual([1, 2, 3, 4]);
+  });
+
+  it('does not consume a rental id', () => {
+    rentBike({ userId: CAROL, stationId: REPUBLIQUE });
+    payment.preAuthorizePayment.mockImplementation((_user, amount) => ({ success: true, reference: 'REF-PREAUTH', amount }));
+
+    expect(rentBike({ userId: CAROL, stationId: REPUBLIQUE }).body.rentalId).toBe(1);
+  });
+
+  it('logs the refusal with its reason', () => {
+    rentBike({ userId: CAROL, stationId: REPUBLIQUE, bikeId: ELECTRIC_BIKE });
+
+    expect(console.log).toHaveBeenCalledWith(
+      '[WARN] payment declined {"userId":3,"amount":7.5,"reason":"insufficient funds"}'
+    );
+    expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('rental created'));
+  });
+});
+
+describe('handleGetRental estimate', () => {
+  it('gives an estimate equal to the price of the rental', () => {
     const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
 
     const response = getRental(rentalId);
