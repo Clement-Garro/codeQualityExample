@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+  "testRunner": "jest",
+  "jest": {
+    "config": {
+      "testMatch": ["<rootDir>/tests/unit/**/*.test.ts", "<rootDir>/tests/integration/**/*.test.ts"]
+    }
+  },
+  "mutate": ["src/**/*.ts", "!src/index.ts"],
+  "coverageAnalysis": "perTest",
+  "reporters": ["clear-text", "progress", "html"],
+  "htmlReporter": { "fileName": "reports/mutation/index.html" },
+  "thresholds": { "high": 80, "low": 60, "break": 90 },
+  "tempDirName": ".stryker-tmp"
+}
