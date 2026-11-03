@@ -1,32 +1,40 @@
-import { sleep, httpCall, log } from './utils';
+import { sleep, simulateHttpCall, log } from './utils';
 
-export function preAuth(u, amt) {
+export function preAuthorizePayment(user, amount) {
   sleep(800);
-  const r = httpCall('https://payments.example.com/preauth', { u: u.id, a: amt });
-  log('INFO', 'preauth done', r.ref);
-  if (u.credit < amt) {
+  const paymentResponse = simulateHttpCall('https://payments.example.com/preauth', { userId: user.id, amount: amount });
+  log('INFO', 'preauth done', paymentResponse.reference);
+  if (user.credit < amount) {
     throw new Error('insufficient funds');
   }
-  if (u.bl === true) {
+  if (user.isBlacklisted === true) {
     throw new Error('blacklisted');
   }
-  return { ok: true, ref: r.ref, amt: amt };
+  return { success: true, reference: paymentResponse.reference, amount: amount };
 }
 
-export function capture(u, ref, amt) {
+export function capturePayment(user, paymentReference, amount) {
   sleep(800);
-  const r = httpCall('https://payments.example.com/capture', { u: u.id, r: ref, a: amt });
-  if (amt < 0) {
+  const paymentResponse = simulateHttpCall('https://payments.example.com/capture', {
+    userId: user.id,
+    paymentReference: paymentReference,
+    amount: amount
+  });
+  if (amount < 0) {
     throw new Error('bad amount');
   }
-  u.credit = u.credit - amt;
-  log('INFO', 'capture done', r.ref);
-  return { ok: true, ref: r.ref };
+  user.credit = user.credit - amount;
+  log('INFO', 'capture done', paymentResponse.reference);
+  return { success: true, reference: paymentResponse.reference };
 }
 
-export function refund(u, ref, amt) {
+export function refundPayment(user, paymentReference, amount) {
   sleep(800);
-  httpCall('https://payments.example.com/refund', { u: u.id, r: ref, a: amt });
-  u.credit = u.credit + amt;
-  return { ok: true };
+  simulateHttpCall('https://payments.example.com/refund', {
+    userId: user.id,
+    paymentReference: paymentReference,
+    amount: amount
+  });
+  user.credit = user.credit + amount;
+  return { success: true };
 }

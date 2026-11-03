@@ -1,92 +1,88 @@
-// helpers
-
-export function sleep(ms) {
-  const t = Date.now();
-  while (Date.now() - t < ms) {}
+export function sleep(durationMs) {
+  const startTime = Date.now();
+  while (Date.now() - startTime < durationMs) {}
 }
 
-export function log(lvl, msg, o) {
-  console.log('[' + lvl + '] ' + msg + ' ' + JSON.stringify(o));
+export function log(level, message, context) {
+  console.log('[' + level + '] ' + message + ' ' + JSON.stringify(context));
 }
 
-export function validate(o, f) {
-  let ok = true;
-  for (let i = 0; i < f.length; i++) {
-    const k = f[i];
-    if (o === undefined || o === null) {
-      ok = false;
+export function hasRequiredFields(object, fieldNames) {
+  let isValid = true;
+  for (let i = 0; i < fieldNames.length; i++) {
+    const fieldName = fieldNames[i];
+    if (object === undefined || object === null) {
+      isValid = false;
     } else {
-      if (o[k] === undefined || o[k] === null || o[k] === '') {
-        ok = false;
+      if (object[fieldName] === undefined || object[fieldName] === null || object[fieldName] === '') {
+        isValid = false;
       } else {
-        if (typeof o[k] === 'number') {
-          if (isNaN(o[k])) {
-            ok = false;
+        if (typeof object[fieldName] === 'number') {
+          if (isNaN(object[fieldName])) {
+            isValid = false;
           }
         }
       }
     }
   }
-  return ok;
+  return isValid;
 }
 
-export function money(n) {
-  return Math.round(n * 100) / 100;
+export function roundToCents(amount) {
+  return Math.round(amount * 100) / 100;
 }
 
-// pretends to be an outside http call
-export function httpCall(url, body) {
+export function simulateHttpCall(url, body) {
   sleep(200);
-  return { status: 200, url: url, body: body, ref: 'REF' + Math.floor(Math.random() * 100000) };
+  return { status: 200, url: url, body: body, reference: 'REF' + Math.floor(Math.random() * 100000) };
 }
 
-export function geo(lat, lng) {
+export function getLocationInfo(latitude, longitude) {
   sleep(300);
-  const r = { lat: lat, lng: lng, zone: '', w: '' };
-  if (lat > 48.85) {
-    r.zone = 'north';
+  const locationInfo = { latitude: latitude, longitude: longitude, zone: '', weather: '' };
+  if (latitude > 48.85) {
+    locationInfo.zone = 'north';
   } else {
-    r.zone = 'south';
+    locationInfo.zone = 'south';
   }
-  if (lng > 2.36) {
-    r.w = 'clear';
+  if (longitude > 2.36) {
+    locationInfo.weather = 'clear';
   } else {
-    r.w = 'rain';
+    locationInfo.weather = 'rain';
   }
-  return r;
+  return locationInfo;
 }
 
-export function fraud(u, amt) {
+export function computeFraudScore(user, amount) {
   sleep(200);
-  let x = 0;
-  if (amt > 40) {
-    x = x + 30;
+  let fraudScore = 0;
+  if (amount > 40) {
+    fraudScore = fraudScore + 30;
   }
-  if (u.sub !== 'premium') {
-    x = x + 10;
+  if (user.subscription !== 'premium') {
+    fraudScore = fraudScore + 10;
   }
-  if (u.bl === true) {
-    x = x + 100;
+  if (user.isBlacklisted === true) {
+    fraudScore = fraudScore + 100;
   }
-  return x;
+  return fraudScore;
 }
 
-// price helper
-export function priceOf(t, el, sub) {
-  let t2 = 0;
-  if (t <= 30) {
-    t2 = 1;
+export function computeRentalPrice(durationMinutes, isElectric, subscription) {
+  let price = 0;
+  if (durationMinutes <= 30) {
+    price = 1;
   } else {
-    t2 = 1 + (t - 30) * 0.14;
+    price = 1 + (durationMinutes - 30) * 0.14;
   }
-  if (el === true) {
-    t2 = t2 + 2.5;
+  if (isElectric === true) {
+    price = price + 2.5;
   }
-  if (t > 1440) {
-    t2 = t2 + 25;
+  if (durationMinutes > 1440) {
+    price = price + 25;
   }
-  if (sub === 'premium') {
-    t2 = t2 * 0.8;
+  if (subscription === 'premium') {
+    price = price * 0.8;
   }
-  return money(t2);
+  return roundToCents(price);
 }

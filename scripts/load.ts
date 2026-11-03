@@ -3,34 +3,34 @@ import { app } from '../src/index';
 
 const CONCURRENCY = 20;
 
-function get(port: number, path: string): Promise<number> {
-  const started = Date.now();
+function measureGetLatency(port: number, path: string): Promise<number> {
+  const startTime = Date.now();
   return new Promise((resolve, reject) => {
-    const req = http.get({ port, path }, (res) => {
-      res.resume();
-      res.on('end', () => resolve(Date.now() - started));
+    const request = http.get({ port, path }, (response) => {
+      response.resume();
+      response.on('end', () => resolve(Date.now() - startTime));
     });
-    req.on('error', reject);
+    request.on('error', reject);
   });
 }
 
-async function main() {
+async function runLoadTest() {
   const server = app.listen(0);
   const port = (server.address() as any).port;
 
   console.log(`Firing ${CONCURRENCY} parallel GET /stations requests...`);
-  const started = Date.now();
+  const startTime = Date.now();
   const latencies = await Promise.all(
-    Array.from({ length: CONCURRENCY }, () => get(port, '/stations'))
+    Array.from({ length: CONCURRENCY }, () => measureGetLatency(port, '/stations'))
   );
-  const total = Date.now() - started;
+  const totalWallTime = Date.now() - startTime;
 
-  latencies.sort((a, b) => a - b);
-  const sum = latencies.reduce((a, b) => a + b, 0);
+  latencies.sort((firstLatency, secondLatency) => firstLatency - secondLatency);
+  const latencySum = latencies.reduce((sum, latency) => sum + latency, 0);
 
   console.log('---');
-  console.log(`total wall time : ${total} ms`);
-  console.log(`mean latency    : ${Math.round(sum / latencies.length)} ms`);
+  console.log(`total wall time : ${totalWallTime} ms`);
+  console.log(`mean latency    : ${Math.round(latencySum / latencies.length)} ms`);
   console.log(`min latency     : ${latencies[0]} ms`);
   console.log(`max latency     : ${latencies[latencies.length - 1]} ms`);
   console.log(`p95 latency     : ${latencies[Math.floor(latencies.length * 0.95) - 1]} ms`);
@@ -40,4 +40,4 @@ async function main() {
   server.close();
 }
 
-main();
+runLoadTest();
