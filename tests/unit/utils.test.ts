@@ -10,9 +10,9 @@ import {
 } from '../../src/utils';
 import { useFastClock } from '../support/fastClock';
 
-const basicUser = { subscription: 'basic', isBlacklisted: false };
-const premiumUser = { subscription: 'premium', isBlacklisted: false };
-const blacklistedUser = { subscription: 'basic', isBlacklisted: true };
+const basicUser = { subscription: 'basic', isBlacklisted: false } as const;
+const premiumUser = { subscription: 'premium', isBlacklisted: false } as const;
+const blacklistedUser = { subscription: 'basic', isBlacklisted: true } as const;
 
 beforeEach(() => {
   useFastClock();

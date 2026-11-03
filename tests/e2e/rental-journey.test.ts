@@ -55,7 +55,7 @@ it('a rider finds a bike, rides it and returns it at another station', async () 
   const stationsAfter = (await callApi('GET', '/stations')).body;
   expect(findStation(stationsAfter, 'Montparnasse').free).toBe(2);
   expect(findStation(stationsAfter, 'Nation').free).toBe(2);
-  expect(findStation(stationsAfter, 'Nation').bikes.map((bike) => bike.id)).toContain(9);
+  expect(findStation(stationsAfter, 'Nation').bikes.map((bike: { id: number }) => bike.id)).toContain(9);
 });
 
 it('a rider sending an incomplete request gets a clear error', async () => {

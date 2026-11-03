@@ -58,7 +58,7 @@ Plus un test est haut dans la pyramide, plus il est lent, fragile et difficile �
 
 | Niveau | Nombre | Isole quoi | Durée | Ce qu'il prouve |
 |---|---|---|---|---|
-| Unitaire | 130 | Une fonction ; le paiement (service externe) est mocké | ms | Chaque règle métier est correcte |
+| Unitaire | 135 | Une fonction ; le paiement (service externe) est mocké | ms | Chaque règle métier est correcte |
 | Intégration | 13 | Rien : l'app Express réelle, via supertest | ms | Les modules fonctionnent ensemble (routage, parsing JSON, paiement réel) |
 | E2E | 2 | Rien : un vrai serveur HTTP, horloge réelle | secondes | Un parcours utilisateur complet fonctionne |
 | Mutation | | | minutes | Les tests détectent réellement les erreurs |
@@ -84,7 +84,9 @@ Seulement deux, parce qu'ils sont lents (délais réels de plusieurs secondes) :
 
 **Ce que ça a apporté** : au premier passage, presque tout le code était déjà exécuté par les tests, mais le score de mutation n'était que de 92 %. Les mutants survivants ont révélé de vrais trous. Par exemple, le choix du vélo le moins kilométré semblait testé, mais dans les données initiales ce vélo est toujours le dernier de la liste : un code qui prenait simplement le dernier vélo passait aussi les tests. Un test avec des kilométrages modifiés a corrigé ça.
 
-**Score actuel : 95,5 %** (94,9 % avant la correction des défauts, 95,7 % après, 95,5 % après la suppression de la duplication du tarif : les deux copies supprimées contenaient une centaine de mutants tous tués, ce qui fait mécaniquement baisser le pourcentage), avec un seuil bloquant à 90 % dans `stryker.config.json`. Les mutants restants sont **équivalents**, c'est-à-dire sans effet observable : suppression des délais simulés, noms d'utilisateurs jamais lus, borne `<= 30` ou `< 30` qui donne le même prix à 30 minutes, gardes `user === null` qui ne peuvent jamais être vraies (elles disparaîtront avec le typage strict). Les mutants qui survivaient dans le chemin du défaut de pré-autorisation sont détectés depuis sa correction.
+**Score actuel : 96,4 %** (94,9 % avant la correction des défauts, 95,7 % après, 95,5 % après la suppression de la duplication du tarif : les deux copies supprimées contenaient une centaine de mutants tous tués, ce qui fait mécaniquement baisser le pourcentage ; 96,4 % après le typage strict), avec un seuil bloquant à 90 % dans `stryker.config.json`. Les mutants restants sont **équivalents**, c'est-à-dire sans effet observable : suppression des délais simulés, noms d'utilisateurs jamais lus, borne `<= 30` ou `< 30` qui donne le même prix à 30 minutes, garde `leastUsedBikeIndex >= 0` alors que `availableBikes[-1]` vaut déjà `undefined`.
+
+Le passage au typage strict a révélé un trou : remplacer la recherche d'une location par `rentals.find(() => true)` (toujours la première) ne faisait échouer aucun test, car tous les tests manipulaient la première location de la liste. L'ancienne boucle gardait la dernière correspondance, ce qui masquait le problème. Deux tests sur une location qui n'est pas la première l'ont comblé. Les mutants qui survivaient dans le chemin du défaut de pré-autorisation sont détectés depuis sa correction.
 
 `src/index.ts` est exclu : il ne contient que le câblage des routes, et certaines mutations y démarreraient un vrai serveur pendant les tests.
 
@@ -114,7 +116,7 @@ Maintenant que les tests protègent le comportement, le refactoring peut commenc
 
 1. ~~**Supprimer la duplication du tarif**~~ (diapo 42, DRY) : fait. `computeRentalPrice` est la seule fonction de calcul du prix et `computeDurationMinutes` la seule de calcul de durée.
 2. **Ne plus étouffer les exceptions** (diapo 57) : ne plus ignorer silencieusement un échec de capture (le refus de pré-autorisation est déjà corrigé).
-3. **Rendre les états incohérents impossibles** (diapo 61) : un `enum` pour les statuts, des types `Station`, `Bike`, `User`, `Rental` à la place de `any`, et le mode `strict` de TypeScript.
+3. ~~**Rendre les états incohérents impossibles**~~ (diapo 61) : fait. Mode `strict` de TypeScript, types `Station`, `Bike`, `User`, `Rental` dans `src/types.ts`, enums `BikeStatus` et `RentalStatus`, `Subscription` en objet constant (un `enum` à valeurs chaînes refuserait les littéraux `'basic'` / `'premium'`). Les gardes impossibles (`user !== null`, `bike !== null`) sont remplacées par un échec immédiat (*fail fast*) si les données sont incohérentes, testé dans *inconsistent data*.
 4. **Découper les handlers** (diapos 41 et 46) : une dizaine de niveaux de `if` imbriqués, une complexité cyclomatique élevée et plusieurs rôles par fonction (*separation of concern*, diapo 48).
 5. **Remplacer l'attente active par de l'asynchrone** (diapo 58) : aujourd'hui une requête bloque tout le serveur, ce qui pose un problème de performance (diapo 25) visible avec `pnpm load`.
 6. ~~**Extraire les valeurs en dur**~~ (diapo 45) : fait. Les valeurs métier sont des constantes nommées dans `src/businessRules.ts` (`PRICE_PER_EXTRA_MINUTE`, `MINIMUM_CREDIT_TO_RENT`, `FRAUD_REFUSAL_SCORE`...). Restent volontairement en littéral : les statuts (remplacés par des `enum` à l'étape 3), les délais simulés (supprimés à l'étape 5) et les codes HTTP.

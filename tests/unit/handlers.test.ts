@@ -1,5 +1,6 @@
 import { createRequest, createResponse } from '../support/fakeHttp';
 import { FastClock, useFastClock } from '../support/fastClock';
+import { findById } from '../support/findById';
 
 // The payment gateway is an external system: it is replaced by a mock in unit tests.
 jest.mock('../../src/payment');
@@ -57,15 +58,15 @@ function getRental(id: number | string) {
 }
 
 function findUser(id: number) {
-  return db.users.find((user) => user.id === id);
+  return findById(db.users, id);
 }
 
 function findBike(id: number) {
-  return db.bikes.find((bike) => bike.id === id);
+  return findById(db.bikes, id);
 }
 
 function findStation(id: number) {
-  return db.stations.find((station) => station.id === id);
+  return findById(db.stations, id);
 }
 
 function rentForMinutes(userId: number, bikeId: number, minutes: number) {
@@ -382,7 +383,17 @@ describe('handleReturnBike', () => {
       const response = returnBike({ rentalId: carolRentalId, stationId: BASTILLE });
 
       expect(response.body.rentalId).toBe(carolRentalId);
-      expect(db.rentals.find((rental) => rental.id === aliceRentalId).endTime).toBeNull();
+      expect(findById(db.rentals, aliceRentalId).endTime).toBeNull();
+    });
+
+    it('closes a rental that is not the first one in the list', () => {
+      const carolRentalId = rentBike({ userId: CAROL, stationId: REPUBLIQUE }).body.rentalId;
+      const aliceRentalId = rentBike({ userId: ALICE, stationId: MONTPARNASSE }).body.rentalId;
+
+      const response = returnBike({ rentalId: aliceRentalId, stationId: BASTILLE });
+
+      expect(response.body.rentalId).toBe(aliceRentalId);
+      expect(findById(db.rentals, carolRentalId).endTime).toBeNull();
     });
 
     it('captures the price on the pre-authorized payment', () => {
@@ -523,7 +534,7 @@ describe('handleListStations', () => {
     const republique = listStations().body[0];
 
     expect(republique).toMatchObject({ free: 2, electric: 1, slots: 17 });
-    expect(republique.bikes.map((bike) => bike.id)).toEqual([1, 2]);
+    expect(republique.bikes.map((bike: { id: number }) => bike.id)).toEqual([1, 2]);
   });
 });
 
@@ -533,6 +544,15 @@ describe('handleGetRental', () => {
 
     expect(response.statusCode).toBe(404);
     expect(response.body).toEqual({ msg: 'no rental' });
+  });
+
+  it('shows the requested rental when it is not the first one in the list', () => {
+    rentBike({ userId: CAROL, stationId: REPUBLIQUE, bikeId: CLASSIC_BIKE });
+    const aliceRentalId = rentBike({ userId: ALICE, stationId: MONTPARNASSE }).body.rentalId;
+
+    const response = getRental(aliceRentalId);
+
+    expect(response.body).toMatchObject({ id: aliceRentalId, bikeId: 9 });
   });
 
   it('shows the running duration and price of an open rental', () => {
@@ -634,5 +654,39 @@ describe('handleGetRental estimate', () => {
     const response = getRental(rentalId);
 
     expect(response.body.estimate).toBe(response.body.price);
+  });
+});
+
+// The seed data guarantees that a rental refers to an existing user and bike. If that is no longer
+// true, the data is corrupted: the handlers fail fast instead of charging the wrong price or
+// silently skipping the bike.
+describe('inconsistent data', () => {
+  function deleteRecord<T extends { id: number }>(records: T[], id: number) {
+    records.splice(records.indexOf(findById(records, id)), 1);
+  }
+
+  it('refuses to return a bike whose rental refers to an unknown user, without closing the rental', () => {
+    const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
+    deleteRecord(db.users, CAROL);
+
+    expect(() => returnBike({ rentalId, stationId: BASTILLE })).toThrow('inconsistent data: user 3 of rental 1 not found');
+    expect(findById(db.rentals, rentalId).endTime).toBeNull();
+    expect(payment.capturePayment).not.toHaveBeenCalled();
+  });
+
+  it('refuses to return a bike whose rental refers to an unknown bike, without closing the rental', () => {
+    const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
+    deleteRecord(db.bikes, CLASSIC_BIKE);
+
+    expect(() => returnBike({ rentalId, stationId: BASTILLE })).toThrow('inconsistent data: bike 1 of rental 1 not found');
+    expect(findById(db.rentals, rentalId).endTime).toBeNull();
+    expect(payment.capturePayment).not.toHaveBeenCalled();
+  });
+
+  it('refuses to show a rental that refers to an unknown user', () => {
+    const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
+    deleteRecord(db.users, CAROL);
+
+    expect(() => getRental(rentalId)).toThrow('inconsistent data: user 3 of rental 1 not found');
   });
 });

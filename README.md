@@ -8,7 +8,7 @@ Le projet se présente comme une base « legacy » : tout tient dans quelques fi
 
 ## Stack
 
-- Node.js + TypeScript (mode non strict)
+- Node.js + TypeScript (mode `strict`)
 - Express 4
 - Jest + ts-jest + supertest pour les tests, Stryker pour les tests de mutation
 - ts-node pour lancer sans compiler
@@ -28,19 +28,20 @@ pnpm load         # petit test de charge sur GET /stations
 
 ```
 src/
-  index.ts      # app Express et déclaration des routes
-  handlers.ts   # toute la logique métier des 4 routes
-  db.ts         # "base de données" en mémoire (stations, vélos, utilisateurs, locations)
-  payment.ts    # client de paiement simulé (pré-autorisation, capture, remboursement)
-  utils.ts      # helpers : validation, log, arrondi, durée, tarif, géo/météo, score de fraude
+  index.ts         # app Express et déclaration des routes
+  handlers.ts      # toute la logique métier des 4 routes
+  types.ts         # types du domaine (Station, Bike, User, Rental) et statuts nommés
   businessRules.ts # règles métier nommées : tarif, crédit minimum, pré-autorisation, fraude, usure, zones
+  db.ts            # "base de données" en mémoire (stations, vélos, utilisateurs, locations)
+  payment.ts       # client de paiement simulé (pré-autorisation, capture, remboursement)
+  utils.ts         # helpers : validation, log, arrondi, durée, tarif, géo/météo, score de fraude
 scripts/
   load.ts       # envoie 20 requêtes GET /stations en parallèle et mesure la latence
 tests/
   unit/         # tests unitaires (utils, payment, db, handlers)
   integration/  # tests d'intégration de l'API HTTP
   e2e/          # parcours utilisateur sur un vrai serveur
-  support/      # outils partagés (horloge rapide, faux req/res, silence des logs)
+  support/      # outils partagés (horloge rapide, faux req/res, recherche par id, silence des logs)
 ```
 
 ## Tests
@@ -49,30 +50,30 @@ La stratégie suit la pyramide des tests : beaucoup de tests unitaires rapides, 
 
 | Niveau | Commande | Nombre | Ce qui est testé |
 |---|---|---|---|
-| Unitaire | `pnpm test:unit` | 130 | Chaque fonction isolément ; dans les handlers, le paiement (service externe) est mocké |
+| Unitaire | `pnpm test:unit` | 135 | Chaque fonction isolément ; dans les handlers, le paiement (service externe) est mocké |
 | Intégration | `pnpm test:integration` | 13 | L'application Express réelle avec tous ses modules, via supertest, sans mock |
 | E2E | `pnpm test:e2e` | 2 | Un vrai serveur HTTP appelé avec `fetch`, horloge et délais réels |
 | Mutation | `pnpm test:mutation` | | Stryker modifie le code source et vérifie que les tests unitaires et d'intégration détectent chaque modification |
 
 Autres commandes : `pnpm test:coverage` (couverture des tests unitaires et d'intégration).
 
-Résultats actuels : 100 % des lignes couvertes, 97,6 % des branches, **score de mutation de 95,5 %**. Stryker échoue sous 90 % (`stryker.config.json`). Le rapport HTML est généré dans `reports/mutation/index.html`.
+Résultats actuels : 100 % des lignes et des branches couvertes, **score de mutation de 96,4 %**. Stryker échoue sous 90 % (`stryker.config.json`). Le rapport HTML est généré dans `reports/mutation/index.html`.
 
 Points à connaître :
 
 - **Horloge rapide** (`tests/support/fastClock.ts`) : le code attend en boucle active sur `Date.now()`. Les tests unitaires et d'intégration remplacent `Date.now` par une horloge qui avance d'1 ms à chaque lecture : les délais simulés deviennent instantanés et les durées de location sont exactes (`clock.advanceMinutes(45)`).
 - **Isolation** : chaque test recharge les modules (`jest.resetModules()`) et repart des données initiales. L'ordre d'exécution n'a plus d'importance.
 - **Défauts connus** : un défaut trouvé mais pas encore corrigé est décrit par un test marqué `it.failing`, qui exprime le comportement attendu et échoue tant que le bug existe. Il faut retirer `.failing` une fois le bug corrigé. Aucun n'est ouvert aujourd'hui.
-- **Mutants survivants** : ils sont équivalents (suppression des délais simulés, noms jamais lus, borne `<= 30` / `< 30` qui donne le même prix, gardes `user === null` qui ne peuvent jamais être vraies) : aucun ne correspond à un comportement non vérifié.
+- **Mutants survivants** : ils sont équivalents (suppression des délais simulés, noms jamais lus, borne `<= 30` / `< 30` qui donne le même prix, garde `leastUsedBikeIndex >= 0` alors que `availableBikes[-1]` vaut déjà `undefined`) : aucun ne correspond à un comportement non vérifié.
 
 ## Données (en mémoire)
 
 Les données sont réinitialisées à chaque redémarrage.
 
-- **Stations** (4, à Paris) : République, Bastille, Montparnasse, Nation. Chaque station a une capacité (`cap`), des coordonnées et la liste des vélos présents (`b`).
-- **Vélos** (10) : station courante (`st`), statut (`s`), kilométrage (`km`), électrique ou non (`el`).
-  Statuts : `0` disponible, `1` loué, `2` en maintenance, `3` cassé.
-- **Utilisateurs** (4) : crédit, abonnement (`basic` ou `premium`), drapeau liste noire (`bl`).
+- **Stations** (4, à Paris) : République, Bastille, Montparnasse, Nation. Chaque station a une capacité (`capacity`), des coordonnées et la liste des vélos présents (`bikeIds`).
+- **Vélos** (10) : station courante (`stationId`), statut (`status`), kilométrage (`kilometers`), électrique ou non (`isElectric`).
+  Statuts (`BikeStatus`) : `Available` (0), `Rented` (1), `Maintenance` (2), `Broken` (3). Une location est `Open` (1) ou `Completed` (2) (`RentalStatus`).
+- **Utilisateurs** (4) : crédit, abonnement (`basic` ou `premium`), drapeau liste noire (`isBlacklisted`).
   - alice : premium, 50 de crédit
   - bob : basic, 4 de crédit (pas assez pour louer)
   - carol : basic, 120 de crédit
@@ -142,5 +143,4 @@ Ce que montre une première lecture, à approfondir :
 - **Event loop bloquée** : `sleep()` est une boucle d'attente active. Chaque appel « externe » bloque tout le serveur, donc les requêtes concurrentes sont traitées une par une. C'est précisément ce que `pnpm load` met en évidence (`GET /stations` coûte environ 1,2 s à lui seul).
 - **Erreurs de capture avalées** : un `catch` vide ; le vélo est rendu même si le paiement échoue, et le crédit peut devenir négatif puisque rien ne compare le prix final au montant pré-autorisé.
 - **Handlers monolithiques** : `if/else` imbriqués sur une dizaine de niveaux, recherches linéaires répétées, aucune séparation entre accès aux données, règles métier et HTTP.
-- **Typage désactivé** : `strict: false`, paramètres non typés, `rentals: any[]`.
-- **Divers** : port 3000 codé en dur, codes de statut des vélos et des locations sous forme de nombres magiques, tri exécuté dans la boucle de `handleStations`, logs `console.log` non structurés.
+- **Divers** : port 3000 codé en dur, tri exécuté dans la boucle de `handleStations`, logs `console.log` non structurés.

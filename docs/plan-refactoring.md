@@ -49,11 +49,12 @@ Commit : `refactor: single pricing function and named business constants`
 
 Commit : `refactor: strict typing and enums for statuses`
 
-- [ ] Activer `strict` dans `tsconfig.json`
-- [ ] Typer `Station`, `Bike`, `User`, `Rental` et supprimer les `any`
-- [ ] Remplacer les statuts numériques par des enums `BikeStatus`, `RentalStatus`, `Subscription` (diapo 61)
-- [ ] Supprimer les gardes impossibles (`user !== null`) en échouant tôt si les données sont incohérentes
-- [ ] Portes qualité, puis commit
+- [x] Activer `strict` dans `tsconfig.json` (sources et tests)
+- [x] Typer `Station`, `Bike`, `User`, `Rental` et supprimer les `any` ; les handlers dépendent d'interfaces HTTP minimales (`HttpRequest`, `HttpResponse`) et le paiement ne reçoit que les champs utiles de l'utilisateur
+- [x] Remplacer les statuts numériques par des enums `BikeStatus`, `RentalStatus` ; `Subscription` en objet `as const` pour garder les littéraux `'basic'` / `'premium'` valides (diapo 61)
+- [x] Supprimer les gardes impossibles (`user !== null`, `bike !== null`) en échouant tôt si les données sont incohérentes (3 tests ajoutés)
+- [x] Tests : modifications de typage uniquement (helper `findById`, callbacks typés, `as const`), aucune assertion changée ; 2 tests ajoutés pour un trou révélé par la mutation (location qui n'est pas la première de la liste)
+- [x] Portes qualité (150 tests, 100 % des lignes et des branches, mutation 96,38 %), puis commit
 
 ### 2c. Découpage en couches SOLID
 

@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { FastClock, useFastClock } from '../support/fastClock';
+import { findById } from '../support/findById';
 
 // Integration tests: the real Express app with its real modules (routing, JSON parsing,
 // handlers, in-memory database and payment client) wired together, without any mock.
@@ -51,10 +52,10 @@ describe('rental lifecycle through the HTTP API', () => {
 
     const stations = (await request(app).get('/stations')).body;
 
-    const republique = stations.find((station) => station.id === REPUBLIQUE);
-    const bastille = stations.find((station) => station.id === BASTILLE);
-    expect(republique.bikes.map((bike) => bike.id)).not.toContain(4);
-    expect(bastille.bikes.map((bike) => bike.id)).toContain(4);
+    const republique = stations.find((station: { id: number }) => station.id === REPUBLIQUE);
+    const bastille = stations.find((station: { id: number }) => station.id === BASTILLE);
+    expect(republique.bikes.map((bike: { id: number }) => bike.id)).not.toContain(4);
+    expect(bastille.bikes.map((bike: { id: number }) => bike.id)).toContain(4);
     expect(bastille).toMatchObject({ free: 2, electric: 1, slots: 12 });
   });
 
@@ -87,7 +88,7 @@ describe('rental lifecycle through the HTTP API', () => {
 
   it('refuses the rental when the real payment gateway declines the pre-authorization', async () => {
     // 6 of credit: enough to pass the 5 minimum, not enough for the 7.50 electric pre-authorization.
-    db.users.find((user) => user.id === CAROL).credit = 6;
+    findById(db.users, CAROL).credit = 6;
 
     const response = await request(app).post('/rent').send({ userId: CAROL, stationId: REPUBLIQUE, bikeId: 4 });
 
@@ -95,11 +96,11 @@ describe('rental lifecycle through the HTTP API', () => {
     expect(response.body).toEqual({ msg: 'payment declined' });
     expect(db.rentals).toHaveLength(0);
     const republique = (await request(app).get('/stations')).body[0];
-    expect(republique.bikes.map((bike) => bike.id)).toContain(4);
+    expect(republique.bikes.map((bike: { id: number }) => bike.id)).toContain(4);
   });
 
   it('lets a declined user rent a cheaper classic bike instead', async () => {
-    db.users.find((user) => user.id === CAROL).credit = 6;
+    findById(db.users, CAROL).credit = 6;
     await request(app).post('/rent').send({ userId: CAROL, stationId: REPUBLIQUE, bikeId: 4 });
 
     const response = await request(app).post('/rent').send({ userId: CAROL, stationId: REPUBLIQUE, bikeId: 1 });
@@ -154,5 +155,5 @@ describe('HTTP layer', () => {
 });
 
 function creditOf(userId: number) {
-  return db.users.find((user) => user.id === userId).credit;
+  return findById(db.users, userId).credit;
 }

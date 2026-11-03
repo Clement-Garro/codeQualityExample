@@ -1,6 +1,20 @@
 import { sleep, simulateHttpCall, log } from './utils';
+import { User } from './types';
 
-export function preAuthorizePayment(user, amount) {
+type PaymentAccount = Pick<User, 'id' | 'credit'>;
+
+export interface PreAuthorization {
+  success: true;
+  reference: string;
+  amount: number;
+}
+
+export interface CapturedPayment {
+  success: true;
+  reference: string;
+}
+
+export function preAuthorizePayment(user: PaymentAccount & Pick<User, 'isBlacklisted'>, amount: number): PreAuthorization {
   sleep(800);
   const paymentResponse = simulateHttpCall('https://payments.example.com/preauth', { userId: user.id, amount: amount });
   log('INFO', 'preauth done', paymentResponse.reference);
@@ -13,7 +27,7 @@ export function preAuthorizePayment(user, amount) {
   return { success: true, reference: paymentResponse.reference, amount: amount };
 }
 
-export function capturePayment(user, paymentReference, amount) {
+export function capturePayment(user: PaymentAccount, paymentReference: string, amount: number): CapturedPayment {
   sleep(800);
   const paymentResponse = simulateHttpCall('https://payments.example.com/capture', {
     userId: user.id,
@@ -28,7 +42,7 @@ export function capturePayment(user, paymentReference, amount) {
   return { success: true, reference: paymentResponse.reference };
 }
 
-export function refundPayment(user, paymentReference, amount) {
+export function refundPayment(user: PaymentAccount, paymentReference: string, amount: number): { success: true } {
   sleep(800);
   simulateHttpCall('https://payments.example.com/refund', {
     userId: user.id,
