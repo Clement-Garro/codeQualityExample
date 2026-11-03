@@ -30,7 +30,7 @@ Commit : `fix: refuse rental on declined pre-authorization and use 0.15 rate eve
 - [x] Écrire les 7 fichiers dans le projet
 - [x] Relire le diff
 - [x] Lancer `pnpm test`
-- [ ] Commiter
+- [x] Commiter
 
 ## Étape 2 : refactoring de structure et outillage (7 commits)
 
@@ -153,7 +153,7 @@ La constitution exige de justifier toute nouvelle dépendance.
 
 ## Points ouverts à trancher
 
-- [ ] **Stryker sous Windows** : `pnpm test:mutation` échoue tel quel. Avec pnpm, Stryker ne trouve pas le plugin Jest (`Cannot find TestRunner plugin "jest"`), et le motif `<rootDir>/tests/...` de `stryker.config.json` ne trouve aucun test. Le score de l'étape 1 a été mesuré avec une copie temporaire de la configuration (`"plugins": ["@stryker-mutator/jest-runner"]` et `testMatch` en `**/tests/unit/**/*.test.ts`). À corriger dans `stryker.config.json` par un commit d'outillage séparé.
+- [x] **Stryker sous Windows** : `pnpm test:mutation` échouait sous Windows avec pnpm (plugin Jest introuvable, motif `<rootDir>/tests/...` sans résultat). Corrigé dans `stryker.config.json` : plugin `@stryker-mutator/jest-runner` déclaré explicitement et `testMatch` en `**/tests/unit/**/*.test.ts`.
 
 - [ ] **Hébergement de SonarQube (2g)** : en local avec Docker (gratuit, fonctionne même si le dépôt est privé, et réutilise les diapos Docker 53-54), ou SonarQube Cloud (rien à installer, commente les pull requests GitHub, gratuit pour un dépôt public).
 - [ ] **Crédit débité au-delà de l'autorisation** : le principe IV de la constitution l'interdit, mais aujourd'hui une location de plus de 24 h débite 237,65 alors que seuls 5 ont été pré-autorisés. Il faut une règle métier (plafonner, ou demander une autorisation complémentaire), à corriger dans un commit `fix:` séparé.
