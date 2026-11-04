@@ -35,6 +35,14 @@ minimal, fraude, tarif, usure, rééquilibrage) et la modification directe des d
 L'emplacement d'un vélo est enregistré deux fois (dans la station et dans le vélo), ce que le
 principe VI de la constitution interdit.
 
+## Clarifications
+
+### Session 2026-11-04
+
+- Q: Les 4 commits `refactor:` de l'étape 2c doivent-ils passer en revue et être intégrés à `main` un
+  par un, ou ensemble à la fin ? → A: Une demande de fusion par story (P1, P2, P3, P4), chacune revue
+  et intégrée à `main` avant de commencer la suivante.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Domaine isolé et testé seul (Priority: P1)
@@ -197,7 +205,9 @@ les corrige pas) :
   la création de location, le refus de paiement, la pré-autorisation, la capture et le
   rééquilibrage, ainsi que pour l'alerte « vélo cassé » (FR-016).
 - **FR-004**: Chaque priorité (P1 à P4) MUST être livrée dans un commit `refactor:` distinct après
-  lequel toutes les portes qualité sont vertes.
+  lequel toutes les portes qualité sont vertes, proposé dans sa propre demande de fusion vers `main`.
+  Cette demande MUST être revue et intégrée avant que la priorité suivante ne commence ; chaque story
+  part donc de `main` à jour.
 
 **P1 – Domaine**
 
@@ -306,7 +316,7 @@ les corrige pas) :
 
 | Catégorie | Exigence | Métrique | Seuil |
 |-----------|----------|----------|-------|
-| Performance | Le refactoring ne ralentit pas le service | Latence moyenne et maximale de `pnpm load` avant / après | Pas plus de 10 % au-dessus de la mesure de référence |
+| Performance | Le refactoring ne ralentit pas le service | Latence moyenne et maximale de `pnpm load` (médiane de 3 exécutions) avant / après | Pas plus de 10 % au-dessus de la mesure de référence |
 | Robustesse | Les entrées invalides restent refusées comme aujourd'hui | Cas d'entrées invalides (champ manquant, nul, vide, `NaN`, identifiant inconnu) couverts par des tests | 100 % des cas actuels |
 | Intégrité des données | Aucun succès partiel ; une seule source de vérité sur l'emplacement des vélos | Tests « refus sans modification » pour chaque raison de refus ; doublons d'emplacement | Toutes les raisons ; 0 doublon |
 | Tolérance aux pannes | Comportement actuel conservé (capture échouée → `captured: false`) | Tests existants | Tous verts ; délais maximaux traités en 2d |

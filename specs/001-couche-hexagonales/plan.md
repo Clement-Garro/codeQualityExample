@@ -29,7 +29,7 @@ Livraison en 4 commits `refactor:` (P1 à P4) selon une stratégie « étrangleu
 
 **Project Type**: web-service (API HTTP JSON)
 
-**Performance Goals**: aucune régression : `pnpm load` (20 `GET /stations` en parallèle) ≤ référence + 10 %
+**Performance Goals**: aucune régression : `pnpm load` (20 `GET /stations` en parallèle), médiane de 3 exécutions ≤ référence + 10 %
 
 **Constraints**: contrat HTTP strictement identique ; attentes actives conservées (supprimées en 2d) ; `console.log` conservé derrière un port (remplacé en 2e) ; fonctions ≤ 30 lignes, complexité ≤ 10, ≤ 3 paramètres, fichiers ≤ 1000 lignes, lignes ≤ 120 caractères (principe III, vérification manuelle en attendant ESLint en 2f)
 
@@ -72,6 +72,8 @@ specs/001-couche-hexagonales/
 │   ├── current-api.openapi.yaml    # contrat HTTP actuel, à préserver
 │   └── ports.md                    # ports driving et driven, lignes de journal
 ├── checklists/requirements.md
+├── baseline.md                     # mesures de référence (tâche de Setup)
+├── test-inventory.md               # inventaire des tests unitaires existants (tâche de Setup)
 └── tasks.md                        # phase 2 (/speckit-tasks)
 ```
 
@@ -149,7 +151,7 @@ découpage sous `tests/unit/`. Correspondance avec le vocabulaire de `docs/plan-
 domaine = domaine, services = application, repositories et services simulés = infrastructure,
 HTTP = présentation.
 
-## Livraison en 4 commits
+## Livraison en 4 commits, une demande de fusion par commit
 
 | Commit | Contenu | Tests | Fin de l'étape |
 |--------|---------|-------|----------------|
@@ -161,6 +163,18 @@ HTTP = présentation.
 Avant P1 : mesures de référence ([quickstart.md](quickstart.md), section 0). Après chaque commit :
 toutes les portes qualité (quickstart, section 1).
 
+Livraison (spec, Clarifications et FR-004) : chaque commit est proposé dans **sa propre demande de fusion** vers
+`main` de `origin`, revue et intégrée avant de commencer la story suivante ; chaque story part d'une branche
+créée depuis `main` à jour.
+
+| Demande de fusion | Branche | Contenu |
+|-------------------|---------|---------|
+| Documentation 2c (préalable) | `001-couches-hexagonales` | les 3 commits `docs:` déjà faits (constitution v2.0.0, plan de refactoring, spec / plan / tâches) et les corrections de l'analyse |
+| P1 | `2c-p1-domain` | `docs:` mesures de référence et inventaire des tests, puis `refactor: isolate the domain model and business policies` |
+| P2 | `2c-p2-ports` | `refactor: put data access and external services behind ports` |
+| P3 | `2c-p3-use-cases` | `refactor: extract rental and station use cases` |
+| P4 | `2c-p4-presentation` | `refactor: reduce the HTTP layer to presentation` |
+
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
@@ -170,6 +184,9 @@ toutes les portes qualité (quickstart, section 1).
 | VI : pas de délai maximal sur les appels simulés | Les appels sont synchrones et locaux ; un délai maximal n'a de sens qu'avec des appels asynchrones | L'ajouter maintenant imposerait l'asynchrone (2d) |
 | VII : `ConsoleLogger` écrit avec `console.log` | Mêmes lignes de journal (FR-003) ; le port est déjà injecté | Logger structuré maintenant : étape 2e, changerait le format |
 | Outillage : pas d'ESLint, Prettier ni SonarQube | Étapes 2f et 2g ; seuils du principe III vérifiés en revue | Ajouter l'outillage dans ce refactoring mélangerait deux intentions |
+| Configuration et message de démarrage en dur dans `src/index.ts` (port 3000, `console.log('listening on 3000')`), alors que le fichier est réécrit en P2 et P4 | Lire le port depuis l'environnement ou journaliser le démarrage via le logger changerait le comportement observable | Le faire maintenant : c'est l'étape 2e (configuration par l'environnement et logger) |
+| Pas d'intégration continue : les portes qualité ne tournent qu'en local | Le dépôt n'a pas de CI ; la créer est un changement d'outillage distinct | L'ajouter dans ce refactoring mélangerait deux intentions ; prévue à l'étape 2h de `docs/plan-refactoring.md` |
+| `any` conservé dans `tests/e2e/rental-journey.test.ts` (`findStation(stations: any[], …)`) | FR-018 fige les tests E2E pendant 2c | Le typer maintenant modifierait le E2E ; corrigé à l'étape 3, quand le E2E est réécrit sur le nouveau contrat |
 | Conversion temporaire enregistrement ↔ entité dans `handlers.ts` (P1 seulement) | Permet un commit P1 vert sans toucher au stockage | Faire P1 et P2 ensemble : diff trop gros pour une revue |
 
 ## Vérification qualité détaillée *(obligatoire, à remplir avant puis après la conception)*

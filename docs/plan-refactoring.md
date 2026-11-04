@@ -36,7 +36,7 @@ Commit : `fix: refuse rental on declined pre-authorization and use 0.15 rate eve
 - [x] Lancer `pnpm test`
 - [x] Commiter
 
-## Étape 2 : refactoring de structure et outillage (7 commits)
+## Étape 2 : refactoring de structure et outillage (8 commits)
 
 L'API ne change pas : mêmes routes, mêmes codes HTTP, mêmes réponses JSON. Les tests d'intégration et E2E restent identiques (seule leur mise en place change), ce qui prouve que le comportement est préservé. L'ordre suit les « Prochaines étapes » de `demarche-qualite.md`.
 
@@ -123,6 +123,17 @@ La diapo 50 distingue l'outil interne au projet (le linter, étape 2f) de l'outi
 
 L'idéal serait de lancer une première analyse dès maintenant, sur le code actuel. Elle donnerait une mesure « avant » à comparer avec le résultat du refactoring.
 
+### 2h. Intégration continue
+
+Commit : `ci: run quality gates on every push`
+
+La constitution exige que les portes qualité soient vertes « en local et en intégration continue » (diapos 150, 151). Le dépôt n'a pas encore de CI : c'est une dérogation écrite (voir Dérogations).
+
+- [ ] Ajouter un workflow GitHub Actions (`.github/workflows/quality.yml`) avec pnpm : installation, `pnpm build`, `pnpm lint`, `pnpm test`, `pnpm test:coverage`, `pnpm test:mutation`
+- [ ] Ajouter l'analyse SonarQube et sa quality gate au workflow (après 2g)
+- [ ] Vérifier qu'un push sur une branche déclenche le workflow et qu'une porte rouge le fait échouer
+- [ ] Portes qualité, puis commit
+
 ## Étape 3 : nouveau contrat REST (comportement)
 
 C'est un changement de contrat : il casse les clients actuels. La constitution exige qu'il soit déclaré, documenté dans le README et accompagné de tests mis à jour. Grâce à l'étape 2c, il ne devrait toucher que la couche HTTP. Il met fin à la dérogation transitoire au principe IX.
@@ -165,7 +176,7 @@ La constitution exige que toute dérogation soit écrite ici, avec l'alternative
 | Dérogation | Pourquoi | Alternative écartée | Fin |
 |---|---|---|---|
 | Principe IX : le contrat actuel est conservé (`POST /rent`, `POST /return`, `GET /stations`, `GET /rentals/:id`, clés `msg`, `ref`, `el`, `km`, codes et corps actuels) | Les tests d'intégration et E2E inchangés prouvent que l'étape 2 préserve le comportement ; changer le contrat en même temps mélangerait structure et comportement | Passer au contrat REST tout de suite : impossible de distinguer une régression du refactoring d'un changement voulu | Étape 3 |
-| Principes IV, VII et X et outillage (linter, formateur, SonarQube) pas encore respectés par le code legacy | Mise en conformité progressive, un commit par intention | Tout réécrire en une fois : diff impossible à relire, risque de régression élevé | Fin de l'étape 2 |
+| Principes IV, VII et X et outillage (linter, formateur, SonarQube, intégration continue) pas encore respectés par le code legacy | Mise en conformité progressive, un commit par intention | Tout réécrire en une fois : diff impossible à relire, risque de régression élevé | Fin de l'étape 2 |
 
 ## Dépendances ajoutées
 

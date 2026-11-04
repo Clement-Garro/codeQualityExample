@@ -16,7 +16,7 @@ chacun des 4 commits** P1 à P4. Les références : [spec](spec.md), [contrat HT
 pnpm test                 # tous verts (150 après 2b, dont 13 intégration et 2 E2E)
 pnpm test:coverage        # noter lignes et branches (attendu : 100 % / 100 %)
 pnpm test:mutation        # noter le score (attendu ≥ 90 %, 96,38 % après 2b)
-pnpm load                 # noter latence moyenne et maximale
+pnpm load                 # 3 fois : noter la médiane des latences moyenne et maximale
 ```
 
 Noter les quatre valeurs dans la description du premier commit ou dans `docs/plan-refactoring.md`.
@@ -29,7 +29,8 @@ Noter les quatre valeurs dans la description du premier commit ou dans `docs/pla
 | Tous les tests | `pnpm test` | tout vert |
 | Couverture | `pnpm test:coverage` | lignes et branches ≥ référence (100 %) |
 | Mutation | `pnpm test:mutation` | score ≥ 90 % |
-| Performance | `pnpm load` | moyenne et maximum ≤ référence + 10 % |
+| Performance | `pnpm load` (3 fois) | médianes de la moyenne et du maximum ≤ référence + 10 % |
+| Relecture humaine | revue du diff | 5 questions de la diapo 142 traitées, remarques corrigées |
 
 ## 2. Contrat HTTP inchangé (SC-001)
 
