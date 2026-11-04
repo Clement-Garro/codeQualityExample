@@ -120,24 +120,24 @@ vide quand son fichier d'origine est supprimé. Un cas retiré volontairement po
 | `tests/unit/utils.test.ts` | hasRequiredFields | rejects a null object | |
 | `tests/unit/utils.test.ts` | hasRequiredFields | rejects a undefined object | |
 | `tests/unit/utils.test.ts` | hasRequiredFields | accepts any object when no field is required | |
-| `tests/unit/utils.test.ts` | roundToCents | rounds 3.14159 to 3.14 | |
-| `tests/unit/utils.test.ts` | roundToCents | rounds 4.6000000001 to 4.6 | |
-| `tests/unit/utils.test.ts` | roundToCents | rounds 0.125 to 0.13 | |
-| `tests/unit/utils.test.ts` | roundToCents | rounds 10 to 10 | |
+| `tests/unit/utils.test.ts` | roundToCents | rounds 3.14159 to 3.14 |`tests/unit/domain/money.test.ts` |
+| `tests/unit/utils.test.ts` | roundToCents | rounds 4.6000000001 to 4.6 |`tests/unit/domain/money.test.ts` |
+| `tests/unit/utils.test.ts` | roundToCents | rounds 0.125 to 0.13 |`tests/unit/domain/money.test.ts` |
+| `tests/unit/utils.test.ts` | roundToCents | rounds 10 to 10 |`tests/unit/domain/money.test.ts` |
 | `tests/unit/utils.test.ts` | simulateHttpCall | answers 200, echoes the request and returns a payment reference | |
 | `tests/unit/utils.test.ts` | getLocationInfo | places (48.867, 2.363) in zone "north" with "clear" weather | |
 | `tests/unit/utils.test.ts` | getLocationInfo | places (48.841, 2.322) in zone "south" with "rain" weather | |
 | `tests/unit/utils.test.ts` | getLocationInfo | places (48.85, 2.36) in zone "south" with "rain" weather | |
 | `tests/unit/utils.test.ts` | getLocationInfo | places (48.851, 2.361) in zone "north" with "clear" weather | |
-| `tests/unit/utils.test.ts` | computeFraudScore | scores a premium user with a small amount | |
-| `tests/unit/utils.test.ts` | computeFraudScore | scores a basic user | |
-| `tests/unit/utils.test.ts` | computeFraudScore | scores an amount of exactly 40 | |
-| `tests/unit/utils.test.ts` | computeFraudScore | scores an amount above 40 | |
-| `tests/unit/utils.test.ts` | computeFraudScore | scores a basic user with an amount above 40 | |
-| `tests/unit/utils.test.ts` | computeFraudScore | scores a blacklisted user | |
-| `tests/unit/utils.test.ts` | computeRentalPrice | charges the flat price of 1 for the first 30 minutes | |
-| `tests/unit/utils.test.ts` | computeRentalPrice | adds 2.50 for an electric bike | |
-| `tests/unit/utils.test.ts` | computeRentalPrice | gives premium subscribers 20% off | |
-| `tests/unit/utils.test.ts` | computeRentalPrice | charges a small amount for each minute after the first 30 | |
-| `tests/unit/utils.test.ts` | computeRentalPrice | adds a 25 penalty once the rental exceeds 24 hours | |
-| `tests/unit/utils.test.ts` | computeRentalPrice | uses the billing rate of 0.15 per minute after the first 30 minutes | |
+| `tests/unit/utils.test.ts` | computeFraudScore | scores a premium user with a small amount |`tests/unit/domain/fraud.test.ts` |
+| `tests/unit/utils.test.ts` | computeFraudScore | scores a basic user |`tests/unit/domain/fraud.test.ts` |
+| `tests/unit/utils.test.ts` | computeFraudScore | scores an amount of exactly 40 |`tests/unit/domain/fraud.test.ts` |
+| `tests/unit/utils.test.ts` | computeFraudScore | scores an amount above 40 |`tests/unit/domain/fraud.test.ts` |
+| `tests/unit/utils.test.ts` | computeFraudScore | scores a basic user with an amount above 40 |`tests/unit/domain/fraud.test.ts` |
+| `tests/unit/utils.test.ts` | computeFraudScore | scores a blacklisted user |`tests/unit/domain/fraud.test.ts` |
+| `tests/unit/utils.test.ts` | computeRentalPrice | charges the flat price of 1 for the first 30 minutes |`tests/unit/domain/pricing.test.ts` |
+| `tests/unit/utils.test.ts` | computeRentalPrice | adds 2.50 for an electric bike |`tests/unit/domain/pricing.test.ts` |
+| `tests/unit/utils.test.ts` | computeRentalPrice | gives premium subscribers 20% off |`tests/unit/domain/pricing.test.ts` |
+| `tests/unit/utils.test.ts` | computeRentalPrice | charges a small amount for each minute after the first 30 |`tests/unit/domain/pricing.test.ts` |
+| `tests/unit/utils.test.ts` | computeRentalPrice | adds a 25 penalty once the rental exceeds 24 hours |`tests/unit/domain/pricing.test.ts` |
+| `tests/unit/utils.test.ts` | computeRentalPrice | uses the billing rate of 0.15 per minute after the first 30 minutes |`tests/unit/domain/pricing.test.ts` |

@@ -1,7 +1,7 @@
 import { sleep, simulateHttpCall, log } from './utils';
-import { User } from './types';
+import type { UserRecord } from './db';
 
-type PaymentAccount = Pick<User, 'id' | 'credit'>;
+type PaymentAccount = Pick<UserRecord, 'id' | 'credit'>;
 
 export interface PreAuthorization {
   success: true;
@@ -14,7 +14,10 @@ export interface CapturedPayment {
   reference: string;
 }
 
-export function preAuthorizePayment(user: PaymentAccount & Pick<User, 'isBlacklisted'>, amount: number): PreAuthorization {
+export function preAuthorizePayment(
+  user: PaymentAccount & Pick<UserRecord, 'isBlacklisted'>,
+  amount: number
+): PreAuthorization {
   sleep(800);
   const paymentResponse = simulateHttpCall('https://payments.example.com/preauth', { userId: user.id, amount: amount });
   log('INFO', 'preauth done', paymentResponse.reference);
