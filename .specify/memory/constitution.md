@@ -2,142 +2,217 @@
 
 ## Core Principles
 
-### I. Comportement préservé, une intention par changement
+### I. Spécifier avant de coder
 
-- Un changement MUST avoir un seul objectif : soit modifier la structure (renommage,
-  refactoring), soit modifier le comportement (correction de bug, nouvelle fonctionnalité).
-  Les deux ne se mélangent jamais dans le même commit.
-- Un changement structurel MUST laisser le comportement observable strictement identique :
-  mêmes codes HTTP, mêmes corps de réponse, mêmes effets sur les données.
-- Le contrat de l'API (routes, clés JSON comme `msg`, `ref`, `el`, `km`, codes de statut)
-  MUST NOT changer sans être déclaré explicitement comme changement de comportement, documenté
-  dans le README et accompagné de tests mis à jour.
-- On comprend et on documente avant de modifier : tout comportement touché MUST être décrit
-  dans le README ou dans la spécification de la fonctionnalité.
+- Toute fonctionnalité ou tout changement de comportement MUST passer par le flux Spec Kit :
+  `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-analyze`
+  → `/speckit-implement` → `/speckit-converge`. Aucun code de production sans `spec.md` validé.
+- Le contrat (comportement, paramètres, retours, erreurs) MUST être défini avant l'implémentation et
+  reste la source de vérité : si le comportement change, la spec est modifiée d'abord (diapo 89).
+- Chaque spec MUST lister ses exigences non fonctionnelles (performance, robustesse, sécurité,
+  intégrité, tolérance aux pannes, maintenabilité) avec une métrique et un seuil (diapos 13 à 25).
+- Les métriques servent au suivi et MUST NOT devenir l'objectif (diapo 16) : un seuil est un minimum,
+  pas une cible à atteindre en écrivant des tests vides.
 
-**Rationale** : sur du code legacy, mélanger structure et comportement rend impossible de
-savoir si une régression vient d'un refactoring ou d'une correction.
+**Rationale** : l'IA est une machine probabiliste ; un contrat écrit et vérifiable est le seul moyen de
+garder le contrôle sur du code généré (diapos 87 à 90).
 
-### II. Filet de tests obligatoire (NON NÉGOCIABLE)
+### II. Tests obligatoires, écrits en premier (NON NÉGOCIABLE)
 
-- Aucun code de production n'est modifié sans tests qui couvrent le comportement concerné.
-  Pour une correction de bug, le test qui décrit le comportement attendu MUST exister avant
-  le correctif (un test `it.failing` existant compte).
-- La stratégie suit la pyramide : beaucoup de tests unitaires, moins de tests d'intégration
-  (application Express réelle via supertest, sans mock), très peu de tests E2E (vrai serveur).
-- Seuls les services externes (paiement, et tout futur appel réseau) MAY être mockés dans les
-  tests unitaires. Les modules internes (utilitaires, données en mémoire) restent réels.
-- Le score de mutation Stryker MUST rester ≥ 90 % (seuil `break` de `stryker.config.json`) ;
-  il ne doit pas baisser par rapport à la branche principale sans justification écrite.
-- Chaque test MUST être isolé (rechargement des modules, données initiales), indépendant de
-  l'ordre d'exécution, nommé comme une spécification (« refuses a user with less than 5 of
-  credit ») et structuré préparer / agir / vérifier, avec des données nommées (`ALICE`,
-  `REPUBLIQUE`) plutôt que des valeurs en dur.
-- Un défaut connu non corrigé MUST être décrit par un test `it.failing`. Quand le défaut est
-  corrigé, `.failing` MUST être retiré dans le même changement.
+- Le développement MUST suivre le TDD : le test qui décrit le comportement attendu est écrit, échoue,
+  puis le code le fait passer, puis on refactore (diapo 79). Cela vaut pour le code écrit par une IA.
+- La pyramide MUST être respectée (diapo 77) : beaucoup de tests unitaires, moins de tests
+  d'intégration, très peu de tests end-to-end, ces derniers construits sur les parcours utilisateur
+  de la spec (diapo 75).
+- Un test MUST être déterministe, isolé des autres tests et indépendant de leur ordre (diapos 68, 71).
+  Pas d'horloge, d'aléatoire ni de réseau non maîtrisés.
+- Un test MUST suivre Arrange / Act / Assert ou Given / When / Then, avoir un nom qui se lit comme une
+  spécification et utiliser des données nommées plutôt que des valeurs en dur (diapos 69, 70).
+- Les mocks MUST rester aux frontières (services externes, horloge, réseau) ; le code interne est
+  testé réel (diapo 72). Les tests d'intégration MUST tester le code dans son vrai contexte (diapo 74).
+- Le score de tests par mutation MUST rester ≥ 90 % et la couverture des lignes et
+  des branches MUST NOT baisser (diapos 71, 73).
+- Un défaut connu non corrigé MUST être décrit par un test marqué « échec attendu » (`it.failing`,
+  `@Disabled` avec raison, etc.), converti en test normal dans le changement qui le corrige.
 
-**Rationale** : la couverture dit quelles lignes s'exécutent ; seuls des tests de qualité
-(mesurée par mutation) permettent de refactorer sans peur.
+**Rationale** : un bug en production coûte cher (diapo 67) ; une couverture de 100 % ne prouve rien
+sans assertions, d'où la mutation (diapo 73).
 
-### III. Une seule source de vérité
+### III. Code lisible
 
-- Chaque règle métier (tarification, seuil de crédit, montant de pré-autorisation, score de
-  fraude, statuts des vélos) MUST être définie à un seul endroit et réutilisée partout.
-- Les valeurs métier MUST être des constantes nommées (`30`, `0.15`, `2.5`, `1440`, `25`,
-  `0.8`, `5`, `100` n'apparaissent pas en littéral dans la logique).
-- Les ensembles de valeurs fermés (statuts des vélos, abonnements) MUST être représentés par
-  des `enum` ou des unions de types, jamais par des nombres ou chaînes magiques.
+- Les noms MUST exprimer l'intention sans commentaire, être prononçables et cohérents dans tout le
+  projet ; un même concept garde le même nom ; les fonctions contiennent un verbe ; les booléens
+  commencent par `is`/`has`/`can` ; les unités figurent dans le nom si besoin (diapos 37, 38).
+- Les conventions du langage MUST être respectées et la mise en forme MUST être automatisée par un
+  formateur (diapos 37, 39).
+- Un commentaire MUST compléter le code, jamais le paraphraser ; aucun code commenté n'est commité
+  (diapo 40).
+- Une fonction MUST tenir en 30 lignes, avoir une complexité cyclomatique
+  ≤ 10 et au plus 3 paramètres ; l'imbrication est remplacée par des gardes
+  (diapos 41, 43, 46).
+- Un fichier de code, tests compris, MUST NOT dépasser 1000 lignes ; au-delà de 400 lignes,
+  son découpage MUST être envisagé et le choix de ne pas découper justifié en revue. Une ligne MUST NOT
+  dépasser 120 caractères (diapo 41). Seuls les fichiers générés sont exclus.
+- La duplication de logique MUST être supprimée, sans créer de mauvaise abstraction (diapo 42).
+- Aucune valeur métier en dur : constantes nommées ou configuration (diapo 45).
+- La visibilité MUST être la plus restreinte possible (diapo 44). Les paramètres de sortie sont
+  interdits (diapo 43).
+- La complexité en temps MUST être raisonnée : pas de calcul coûteux dans une boucle évitable
+  (diapo 47). KISS, DRY, YAGNI et Fail fast s'appliquent (diapo 48).
 
-**Rationale** : le tarif codé trois fois a produit une estimation incohérente avec le prix
-facturé (0,14 au lieu de 0,15).
+**Rationale** : le code est écrit pour être lu (diapo 173).
 
-### IV. Échouer tôt, jamais en silence
+### IV. Architecture hexagonale et SOLID
 
-- Une exception ou un échec d'un service externe MUST NOT être avalé (`catch` vide interdit).
-  Il est soit traité explicitement, soit propagé, et dans tous les cas journalisé.
-- Une opération dont un prérequis échoue (ex. pré-autorisation refusée) MUST être refusée
-  avant toute modification de l'état ; l'API répond par un code d'erreur et un corps JSON,
-  jamais par un succès partiel.
-- Les entrées MUST être validées à la frontière HTTP (champs manquants, vides, nuls, de
-  mauvais type, identifiants inconnus) avec un code 4xx explicite.
-- Les données MUST rester cohérentes : un vélo est dans au plus une station, une station ne
-  dépasse pas sa capacité, un crédit n'est pas débité au-delà de ce qui a été autorisé.
+- Le code MUST être séparé en couches : domaine (modèle et règles métier), application (use cases et
+  ports), infrastructure (implémentation des ports *driven* : repositories, API externes), présentation
+  (implémentation des ports *driving* : API REST, UI) (diapos 96 à 103).
+- Le domaine MUST NOT dépendre de l'infrastructure, de la présentation ni d'un framework ; les
+  dépendances pointent vers le domaine.
+- Les dépendances MUST être injectées (constructeur, composition root), jamais instanciées dans le code
+  métier ni obtenues par un singleton (diapo 125). La composition est préférée à l'héritage (diapo 48).
+- Chaque entité MUST avoir une seule responsabilité (S), s'étendre sans être modifiée (O), être
+  substituable par ses implémentations et sous-types (L), dépendre d'interfaces petites et ciblées (I),
+  dépendre d'abstractions et non de détails (D) (diapos 120 à 125).
+- Un design pattern MUST répondre à un problème présent, nommé dans le plan (diapo 105, YAGNI).
 
-**Rationale** : l'échec de pré-autorisation ignoré et les erreurs de capture avalées créent
-des locations sans paiement et des crédits négatifs.
+**Rationale** : couplage faible, séparation des responsabilités et testabilité indépendante du
+contexte (diapo 97).
 
-### V. Code lisible, typé et découpé
+### V. Types et états valides
 
-- Les noms MUST exprimer l'intention, être prononçables et cohérents dans tout le projet ;
-  les fonctions contiennent un verbe, les booléens commencent par `is`/`has`, les unités
-  figurent dans le nom quand elles ne sont pas évidentes (`durationMinutes`).
-- Un commentaire complète le code et ne duplique pas ce que le nom dit déjà.
-- Le code nouveau ou modifié MUST être typé explicitement (`Station`, `Bike`, `User`,
-  `Rental`) ; `any` est interdit dans le code nouveau. La cible est le mode `strict` de
-  TypeScript.
-- Les responsabilités MUST être séparées : HTTP (handlers), règles métier, accès aux données
-  et services externes vivent dans des unités distinctes. Une fonction a un seul rôle ;
-  l'imbrication profonde est remplacée par des gardes (retour anticipé).
+- Le code MUST être typé strictement : mode strict du compilateur, pas de type « fourre-tout »
+  (`any`, `Object`, casts non vérifiés) sans justification écrite (diapos 61, 63).
+- Les ensembles fermés MUST être des enums ou des unions ; un état incohérent MUST être impossible à
+  représenter (diapo 61).
+- Les données MUST être immuables par défaut ; les entités modifient leur état uniquement par des
+  méthodes qui protègent leurs invariants (diapo 60).
+- L'absence de valeur MUST être explicite et traitée (`null`/`undefined`/`Optional`) (diapo 59).
 
-**Rationale** : des handlers monolithiques à dix niveaux de `if` et sans types rendent chaque
-modification risquée et chaque bug difficile à localiser.
+**Rationale** : une erreur détectée à la compilation ne coûte rien.
 
-### VI. Event loop non bloquée
+### VI. Erreurs, robustesse et intégrité
 
-- Le code de production MUST NOT bloquer le thread de Node.js : pas d'attente active, pas de
-  traitement synchrone long. Les appels aux services (même simulés) sont asynchrones.
-- Les calculs coûteux (tri, recherches) MUST être faits hors des boucles quand c'est possible
-  et sur des structures adaptées.
-- Tout changement touchant les performances MUST être vérifié avec `pnpm load`.
+- Une exception MUST NOT être étouffée : elle est traitée explicitement ou propagée, et journalisée
+  (diapo 57).
+- Toute entrée externe MUST être validée côté serveur à la frontière, avec une erreur explicite
+  (diapos 22, 167).
+- Une opération dont un prérequis échoue MUST être refusée avant toute modification de l'état : pas de
+  succès partiel (diapos 17, 48).
+- Les données MUST rester cohérentes entre elles : une seule source de vérité par information
+  (diapo 17).
+- Un appel à un système externe MUST avoir un délai maximal et un comportement défini en cas d'échec
+  (diapos 20, 21).
 
-**Rationale** : l'attente active actuelle sérialise toutes les requêtes ; `GET /stations`
-coûte à lui seul environ 1,2 s.
+**Rationale** : un échec silencieux devient un bug en production.
+
+### VII. Observabilité
+
+- Le code de production MUST journaliser via un logger structuré injecté, jamais via `console.log`,
+  `print` ou équivalent (diapo 62).
+- Les logs MUST permettre de comprendre un incident (contexte, identifiants) et MUST NOT contenir de
+  données sensibles (mots de passe, jetons, données personnelles).
+- La destination des logs MUST être configurable (fichier, sortie standard collectée par la
+  plateforme, service externe).
+
+**Rationale** : les logs sont la principale source d'information en production (diapo 62).
+
+### VIII. Sécurité
+
+- Chaque spec et chaque plan MUST examiner les catégories de l'OWASP Top 10 (version en vigueur)
+  concernées (diapos 165, 166).
+- Requêtes paramétrées ou ORM obligatoires, aucune concaténation de données entrantes dans une
+  requête (diapo 167).
+- Aucun secret dans le code ni dans le dépôt ; pas d'identifiants par défaut ; mots de passe hachés
+  avec un algorithme adapté (bcrypt, argon2) (diapos 168, 169).
+- Les permissions MUST être vérifiées côté serveur ; les données sont classées par sensibilité et
+  chiffrées quand elles sont sensibles (diapo 169).
+- Les dépendances MUST être justifiées, à jour et auditées (chaîne d'approvisionnement logicielle).
+
+**Rationale** : la sécurité se mesure par rapport au risque et commence par des règles simples dans le
+code (diapo 165).
+
+### IX. API REST
+
+*S'applique dès que le projet expose une API HTTP.*
+
+- Les URL MUST désigner des ressources, pas des actions ; les verbes HTTP portent l'action et `GET`
+  MUST NOT modifier l'état (diapos 133, 135).
+- Les codes de retour MUST être exacts : 200, 201 (avec en-tête `Location`), 204 (sans contenu), 400,
+  401 (non authentifié), 403 (non autorisé), 404, 409 (conflit d'état), 500 (diapo 134).
+- Le format des erreurs MUST être uniforme dans toute l'API.
+- L'API MUST être sans état (diapo 130) et décrite par un contrat OpenAPI écrit avant le code
+  (diapo 137). Un changement incompatible MUST passer par une nouvelle version (diapo 136).
+
+### X. Performance
+
+- Le code MUST NOT bloquer le fil d'exécution principal : entrées/sorties asynchrones, pas d'attente
+  active (diapo 58).
+- Une optimisation MUST être justifiée par une mesure avant/après, liée à une exigence non
+  fonctionnelle de la spec (diapo 25).
 
 ## Contraintes techniques
 
-- Stack : Node.js, TypeScript, Express 4 ; tests avec Jest, ts-jest, supertest ; mutation avec
-  Stryker. Le gestionnaire de paquets est pnpm (pas de `npm install` ni de `package-lock.json`).
-- Les données restent en mémoire et les services externes (paiement, géolocalisation,
-  anti-fraude) restent simulés, sauf décision explicite consignée dans une spécification.
-- Toute nouvelle dépendance MUST être justifiée dans le plan de la fonctionnalité.
-- La configuration (port, seuils) SHOULD venir de constantes ou de variables d'environnement,
-  pas de valeurs codées en dur dans `src/index.ts`.
-- La journalisation SHOULD passer par un logger structuré plutôt que `console.log`.
-- La documentation du projet (README, `docs/`) est rédigée en français et MUST être mise à
-  jour quand le comportement, les commandes ou la structure changent.
+- Stack : Node.js, TypeScript, Express 4 ; tests avec Jest, ts-jest et supertest ; tests par mutation
+  avec Stryker. Gestionnaire de paquets : pnpm (pas de `npm install` ni de `package-lock.json`).
+- Règles propres à la stack :
+  - `strict: true` dans `tsconfig.json` (sources, scripts et tests) ; `readonly` par défaut ; pas de
+    `as unknown as` ; toute Promise attendue ou gérée (`no-floating-promises`).
+  - ESLint + typescript-eslint avec les seuils du principe III, et un formateur (Prettier).
+  - Le seuil de mutation de 90 % est le seuil `break` de `stryker.config.json` ; il ne peut être
+    abaissé que par amendement de cette constitution.
+  - Tout changement touchant les performances MUST être mesuré avec `pnpm load` avant et après.
+- Règles propres au projet :
+  - **Dérogation transitoire au principe IX (contrat d'API actuel)** : tant que l'étape 3 de
+    `docs/plan-refactoring.md` (`feat!: RESTful API contract`) n'est pas faite, le contrat actuel
+    MUST être conservé à l'identique : routes `POST /rent`, `POST /return`, `GET /stations`,
+    `GET /rentals/:id`, clés JSON `msg`, `ref`, `el`, `km`, codes HTTP et corps de réponse actuels.
+    Un commit `refactor:` MUST NOT modifier ce contrat ; seule l'étape 3 le change, déclarée comme
+    changement de comportement, spécifiée, documentée dans le README et accompagnée des tests mis à
+    jour. Cette dérogation est retirée par amendement dans le changement qui termine l'étape 3.
+  - **Code legacy** : le code existant ne respecte pas encore les principes IV, VII et X ni
+    l'outillage obligatoire ; `docs/plan-refactoring.md` est le chemin de mise en conformité et ses
+    étapes sont suivies dans l'ordre, sauf justification. Le code nouveau ou modifié MUST respecter
+    la constitution.
+  - Les données restent en mémoire et les services externes (paiement, géolocalisation,
+    anti-fraude) restent simulés, sauf décision explicite consignée dans une spec.
+  - Les tests `it.failing` restants MUST correspondre uniquement à des défauts listés dans
+    `docs/demarche-qualite.md`.
+  - La documentation (README, `docs/`) est rédigée en français.
+- Outillage obligatoire : formateur et linter configurés avec les seuils du principe III (taille des
+  fonctions et des fichiers, longueur de ligne, complexité, paramètres), tests avec
+  couverture, tests par mutation, analyse statique externalisée (SonarQube ou équivalent) avec quality
+  gate (diapos 50, 80).
+- Toute nouvelle dépendance MUST être justifiée dans le plan, avec l'alternative écartée.
+- La configuration (ports, URL, seuils, secrets) MUST venir de l'environnement, jamais du code.
+- L'environnement d'exécution SHOULD être reproductible (Docker ou équivalent) (diapos 53, 54).
+- La documentation (README, `docs/`) MUST être à jour quand le comportement, les commandes ou la
+  structure changent.
 
 ## Workflow et portes qualité
 
-Avant d'intégrer un changement sur `main`, toutes ces portes MUST être vertes :
-
-1. `pnpm build` compile sans erreur.
-2. `pnpm test` passe (unitaires, intégration, E2E), les tests `it.failing` restants
-   correspondant uniquement à des défauts encore listés dans `docs/demarche-qualite.md`.
-3. `pnpm test:coverage` ne fait pas baisser la couverture des lignes ni des branches.
-4. `pnpm test:mutation` reste au-dessus du seuil de 90 %.
-5. Le message de commit et la description indiquent si le changement est structurel ou
-   comportemental (Principe I).
-
-Les refactorings suivent l'ordre de priorité de `docs/demarche-qualite.md` (section
-« Prochaines étapes ») sauf justification. Chaque fonctionnalité passe par le flux Spec Kit
-(`/speckit-specify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-implement`), et le plan
-MUST contenir une vérification de conformité à cette constitution.
+1. Un commit MUST avoir une seule intention : structure (`refactor:`) **ou** comportement (`feat:`,
+   `fix:`), jamais les deux. Messages au format Conventional Commits.
+2. Une revue MUST être petite et avoir un contexte clair ; découper au besoin (diapo 143).
+3. Avant d'intégrer, toutes ces portes MUST être vertes, en local et en intégration continue
+   (diapos 150, 151) : build, linter, vérification des types, tests (unitaires, intégration, E2E),
+   couverture sans baisse, mutation ≥ 90 %, quality gate de l'analyse statique.
+4. La revue de code MUST répondre aux 5 questions de la diapo 142 : besoin fonctionnel, exigences non
+   fonctionnelles, clean code, tests, architecture. Elle apporte plus que l'outillage automatique
+   (diapo 144).
+5. Le code et les tests générés par une IA MUST être relus par un humain avant d'être intégrés : la
+   confiance n'exclut pas le contrôle (diapo 88). Une IA ne valide pas seule ses propres tests.
 
 ## Governance
 
-- Cette constitution prévaut sur toute autre pratique du projet. En cas de conflit avec le
-  README ou `docs/`, la constitution s'applique et le document en désaccord est corrigé.
-- Amendement : toute modification passe par `/speckit-constitution`, est décrite dans le
-  rapport d'impact en tête de fichier, et est commitée séparément du code
+- Cette constitution prévaut sur toute autre pratique du projet. En cas de conflit avec un autre
+  document, la constitution s'applique et le document est corrigé.
+- Amendement : uniquement via `/speckit-constitution`, avec rapport d'impact, dans un commit séparé
   (`docs: amend constitution to vX.Y.Z`).
-- Versionnement sémantique : MAJOR pour la suppression ou la redéfinition incompatible d'un
-  principe ; MINOR pour l'ajout d'un principe ou d'une section ou un élargissement notable ;
-  PATCH pour les clarifications et corrections de forme.
-- Conformité : chaque plan (`plan.md`) vérifie les principes avant et après la conception ;
-  chaque revue de code vérifie les portes qualité. Toute dérogation MUST être justifiée par
-  écrit dans le plan (section de suivi de la complexité) avec l'alternative plus simple
-  rejetée.
-- Pour les consignes d'exécution au quotidien, se référer au README et à
-  `docs/demarche-qualite.md`.
+- Versionnement sémantique : MAJOR pour retirer ou affaiblir un principe, MINOR pour en ajouter ou
+  l'étendre, PATCH pour une clarification.
+- Toute dérogation MUST être écrite dans le plan (section Complexity Tracking) avec l'alternative plus
+  simple écartée. Une dérogation non écrite est une violation.
+- `/speckit-analyze` traite toute contradiction avec cette constitution comme CRITICAL.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-03 | **Last Amended**: 2026-11-03
+**Version**: 2.0.0 | **Ratified**: 2026-11-03 | **Last Amended**: 2026-11-04
