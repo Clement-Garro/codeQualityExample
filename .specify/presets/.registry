@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "presets": {
+    "quality-kit": {
+      "version": "1.1.0",
+      "source": "local",
+      "manifest_hash": "sha256:43c36367e48aa20223611d3c338d7b07e1321ddc0b7017ae0ce947907c5bd2e9",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "claude": [
+          "speckit.tasks"
+        ]
+      },
+      "registered_skills": {
+        "claude": [
+          "speckit-tasks"
+        ]
+      },
+      "installed_at": "2026-11-04T08:06:27.236186+00:00"
+    }
+  }
+}

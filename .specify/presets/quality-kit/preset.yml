@@ -1,0 +1,45 @@
+schema_version: "1.0"
+
+preset:
+  id: "quality-kit"
+  name: "Quality Kit"
+  version: "1.1.0"
+  description: "Constitution and templates enforcing clean code, TDD, hexagonal architecture, SOLID, REST and security rules."
+  author: "Clément Garro"
+  repository: "https://github.com/your-account/quality-kit"
+  license: "MIT"
+
+requires:
+  speckit_version: ">=1.2.6"
+
+provides:
+  templates:
+    - type: "template"
+      name: "constitution-template"
+      file: "templates/constitution-template.md"
+      description: "Constitution pre-filled with the code quality rules"
+      replaces: "constitution-template"
+
+    - type: "template"
+      name: "spec-template"
+      file: "templates/spec-addendum.md"
+      description: "Mandatory sections: non-functional requirements, contract, tests, security"
+      strategy: "append"
+
+    - type: "template"
+      name: "plan-template"
+      file: "templates/plan-addendum.md"
+      description: "Detailed quality check, architecture, dependencies and test strategy"
+      strategy: "append"
+
+    - type: "command"
+      name: "speckit.tasks"
+      file: "commands/speckit.tasks.md"
+      description: "Makes test tasks mandatory and written first, adds quality gate tasks"
+      strategy: "wrap"
+
+tags:
+  - "quality"
+  - "tdd"
+  - "architecture"
+  - "governance"
