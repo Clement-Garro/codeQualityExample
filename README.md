@@ -28,20 +28,29 @@ pnpm load         # petit test de charge sur GET /stations
 
 ```
 src/
-  index.ts         # app Express et déclaration des routes
-  handlers.ts      # toute la logique métier des 4 routes
-  types.ts         # types du domaine (Station, Bike, User, Rental) et statuts nommés
-  businessRules.ts # règles métier nommées : tarif, crédit minimum, pré-autorisation, fraude, usure, zones
-  db.ts            # "base de données" en mémoire (stations, vélos, utilisateurs, locations)
-  payment.ts       # client de paiement simulé (pré-autorisation, capture, remboursement)
-  utils.ts         # helpers : validation, log, arrondi, durée, tarif, géo/météo, score de fraude
+  domain/            # modèle et règles métier, sans aucune dépendance extérieure
+    bike.ts, rental.ts, user.ts, station.ts   # entités immuables qui protègent leurs invariants
+    pricing.ts, fraud.ts, bikeSelection.ts, fleet.ts, money.ts   # règles : tarif, fraude, choix du vélo, usure, rééquilibrage
+    businessRules.ts # valeurs métier nommées (tarif, crédit minimum, pré-autorisation, fraude, usure, zones)
+    errors.ts        # DomainRuleViolation, InconsistentDataError
+  application/       # cas d'utilisation et ports (interfaces vers l'extérieur)
+    useCases/        # RentBike, ReturnBike, GetRental, ListStations
+    ports/           # repositories, paiement, localisation, anti-fraude, notifications, logger, horloge
+    result.ts        # résultat d'un cas d'utilisation et raisons de refus
+  infrastructure/    # implémentations des ports
+    inMemory/        # données initiales et repositories en mémoire
+    simulated/       # services externes simulés (paiement, géolocalisation, anti-fraude, notifications)
+    consoleLogger.ts, systemClock.ts
+  presentation/http/ # contrat HTTP actuel : validation, mise en forme, traduction des refus, routes
+  compositionRoot.ts # seul endroit qui crée et relie les dépendances (createApplication)
+  index.ts           # démarrage du serveur
 scripts/
   load.ts       # envoie 20 requêtes GET /stations en parallèle et mesure la latence
 tests/
-  unit/         # tests unitaires (utils, payment, db, handlers)
+  unit/         # tests unitaires, un dossier par couche (domain, application, infrastructure, presentation)
   integration/  # tests d'intégration de l'API HTTP
   e2e/          # parcours utilisateur sur un vrai serveur
-  support/      # outils partagés (horloge rapide, faux req/res, recherche par id, silence des logs)
+  support/      # outils partagés (horloge rapide, doublures des ports, recherche par id, silence des logs)
 ```
 
 ## Tests
@@ -50,28 +59,28 @@ La stratégie suit la pyramide des tests : beaucoup de tests unitaires rapides, 
 
 | Niveau | Commande | Nombre | Ce qui est testé |
 |---|---|---|---|
-| Unitaire | `pnpm test:unit` | 135 | Chaque fonction isolément ; dans les handlers, le paiement (service externe) est mocké |
-| Intégration | `pnpm test:integration` | 13 | L'application Express réelle avec tous ses modules, via supertest, sans mock |
+| Unitaire | `pnpm test:unit` | 302 | Chaque couche isolément : le domaine sans aucune doublure, les cas d'utilisation avec les vrais repositories et des doublures pour les services externes, la couche HTTP avec des cas d'utilisation doublés |
+| Intégration | `pnpm test:integration` | 13 | L'application réelle assemblée par `createApplication()`, via supertest, sans mock |
 | E2E | `pnpm test:e2e` | 2 | Un vrai serveur HTTP appelé avec `fetch`, horloge et délais réels |
 | Mutation | `pnpm test:mutation` | | Stryker modifie le code source et vérifie que les tests unitaires et d'intégration détectent chaque modification |
 
 Autres commandes : `pnpm test:coverage` (couverture des tests unitaires et d'intégration).
 
-Résultats actuels : 100 % des lignes et des branches couvertes, **score de mutation de 96,4 %**. Stryker échoue sous 90 % (`stryker.config.json`). Le rapport HTML est généré dans `reports/mutation/index.html`.
+Résultats actuels : 100 % des lignes et des branches couvertes, **score de mutation de 99,5 %**. Stryker échoue sous 90 % (`stryker.config.json`). Le rapport HTML est généré dans `reports/mutation/index.html`.
 
 Points à connaître :
 
 - **Horloge rapide** (`tests/support/fastClock.ts`) : le code attend en boucle active sur `Date.now()`. Les tests unitaires et d'intégration remplacent `Date.now` par une horloge qui avance d'1 ms à chaque lecture : les délais simulés deviennent instantanés et les durées de location sont exactes (`clock.advanceMinutes(45)`).
-- **Isolation** : chaque test recharge les modules (`jest.resetModules()`) et repart des données initiales. L'ordre d'exécution n'a plus d'importance.
+- **Isolation** : chaque test crée sa propre application (`createApplication()`) ou ses propres repositories, avec une copie neuve des données initiales et une numérotation des locations qui repart de 1. L'ordre d'exécution n'a pas d'importance.
 - **Défauts connus** : un défaut trouvé mais pas encore corrigé est décrit par un test marqué `it.failing`, qui exprime le comportement attendu et échoue tant que le bug existe. Il faut retirer `.failing` une fois le bug corrigé. Aucun n'est ouvert aujourd'hui.
-- **Mutants survivants** : ils sont équivalents (suppression des délais simulés, noms jamais lus, borne `<= 30` / `< 30` qui donne le même prix, garde `leastUsedBikeIndex >= 0` alors que `availableBikes[-1]` vaut déjà `undefined`) : aucun ne correspond à un comportement non vérifié.
+- **Mutants survivants** : les 3 restants sont équivalents (borne `> 30` / `>= 30` qui donne le même prix à 30 minutes, `<` / `<=` dans l'attente active, référence de paiement aléatoire) : aucun ne correspond à un comportement non vérifié.
 
 ## Données (en mémoire)
 
 Les données sont réinitialisées à chaque redémarrage.
 
-- **Stations** (4, à Paris) : République, Bastille, Montparnasse, Nation. Chaque station a une capacité (`capacity`), des coordonnées et la liste des vélos présents (`bikeIds`).
-- **Vélos** (10) : station courante (`stationId`), statut (`status`), kilométrage (`kilometers`), électrique ou non (`isElectric`).
+- **Stations** (4, à Paris) : République, Bastille, Montparnasse, Nation. Chaque station a une capacité (`capacity`) et des coordonnées ; ses vélos présents et ses places libres se déduisent de la station de chaque vélo.
+- **Vélos** (10) : station courante (`stationId`, `null` pendant une location : c'est la seule donnée d'emplacement), statut (`status`), kilométrage (`kilometers`), électrique ou non (`isElectric`).
   Statuts (`BikeStatus`) : `Available` (0), `Rented` (1), `Maintenance` (2), `Broken` (3). Une location est `Open` (1) ou `Completed` (2) (`RentalStatus`).
 - **Utilisateurs** (4) : crédit, abonnement (`basic` ou `premium`), drapeau liste noire (`isBlacklisted`).
   - alice : premium, 50 de crédit
@@ -132,9 +141,9 @@ Le prix est arrondi au centime.
 
 ## Services simulés
 
-- **Paiement** (`payment.ts`) : `preAuth`, `capture`, `refund`. Chaque appel attend environ 1 s (attente active) et renvoie une référence aléatoire. Aucun appel réseau réel.
-- **Géo/météo** (`utils.geo`) : la zone et la « météo » sont déduites de seuils fixes sur la latitude et la longitude.
-- **Anti-fraude** (`utils.fraud`) : score additif (montant > 40, abonnement non premium, liste noire).
+- **Paiement** (`infrastructure/simulated/simulatedPaymentGateway.ts`) : pré-autorisation et capture. Chaque appel attend environ 1 s (attente active) et renvoie une référence aléatoire. Aucun appel réseau réel. Le crédit est débité par le retour, seulement si la capture réussit.
+- **Géo/météo** (`infrastructure/simulated/simulatedLocationService.ts`) : la zone et la « météo » sont déduites de seuils fixes sur la latitude et la longitude.
+- **Anti-fraude** (`infrastructure/simulated/simulatedFraudScreening.ts`) : applique la règle du domaine (`domain/fraud.ts`), un score additif (montant > 40, abonnement non premium, liste noire).
 
 ## Premières observations (pistes d'amélioration)
 

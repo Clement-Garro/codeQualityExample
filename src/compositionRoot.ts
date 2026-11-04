@@ -1,10 +1,9 @@
-import express, { Express } from 'express';
+import { Express } from 'express';
 import { Repositories } from './application/ports/repositories';
 import { GetRental } from './application/useCases/getRental';
 import { ListStations } from './application/useCases/listStations';
 import { RentBike } from './application/useCases/rentBike';
 import { ReturnBike } from './application/useCases/returnBike';
-import { createHandlers, UseCases } from './handlers';
 import { ConsoleLogger } from './infrastructure/consoleLogger';
 import { createInMemoryRepositories } from './infrastructure/inMemory/inMemoryRepositories';
 import { createSeedData, SeedData } from './infrastructure/inMemory/seedData';
@@ -13,6 +12,7 @@ import { SimulatedFraudScreening } from './infrastructure/simulated/simulatedFra
 import { SimulatedLocationService } from './infrastructure/simulated/simulatedLocationService';
 import { SimulatedPaymentGateway } from './infrastructure/simulated/simulatedPaymentGateway';
 import { SystemClock } from './infrastructure/systemClock';
+import { createHttpApp, UseCases } from './presentation/http/createHttpApp';
 
 export interface Application {
   readonly app: Express;
@@ -48,14 +48,5 @@ function createUseCases(repositories: Repositories): UseCases {
 /** The only place where adapters are created and wired: each call gives an application with its own data. */
 export function createApplication(seed: SeedData = createSeedData()): Application {
   const repositories = createInMemoryRepositories(seed);
-  const handlers = createHandlers(createUseCases(repositories));
-
-  const app = express();
-  app.use(express.json());
-  app.post('/rent', handlers.handleRentBike);
-  app.post('/return', handlers.handleReturnBike);
-  app.get('/stations', handlers.handleListStations);
-  app.get('/rentals/:id', handlers.handleGetRental);
-
-  return { app, repositories };
+  return { app: createHttpApp(createUseCases(repositories)), repositories };
 }

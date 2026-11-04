@@ -62,19 +62,19 @@ Commit : `refactor: strict typing and enums for statuses`
 
 ### 2c. Découpage en couches SOLID
 
-Commit : `refactor: split into domain, services, repositories and HTTP layers`
+Commits (une demande de fusion chacun, spec `specs/001-couche-hexagonales`) : `refactor: isolate the domain model and business policies` (P1), `refactor: put data access and external services behind ports` (P2), `refactor: extract rental and station use cases` (P3), `refactor: reduce the HTTP layer to presentation` (P4)
 
 Correspondance avec les couches du principe IV : domaine = domaine, services = application (use cases et ports), repositories et services simulés = infrastructure, HTTP = présentation.
 
-- [ ] Domaine : entités avec leurs règles (`Bike.checkOut()`, `Rental.complete()`), politique de tarif, détection de fraude (S) ; données immuables par défaut, état modifié uniquement par des méthodes qui protègent les invariants (principe V) ; le domaine ne dépend ni d'Express ni de l'infrastructure
-- [ ] Services : `RentalService` (louer, rendre, consulter) et `StationService` (S)
-- [ ] Interfaces (ports) pour les repositories, le paiement et la localisation ; implémentations en mémoire et simulées (I, D)
-- [ ] Couche HTTP : validation des entrées, mise en forme des réponses, gestion des erreurs en un seul endroit
-- [ ] Composition root qui câble toutes les dépendances (injection de dépendances)
-- [ ] Supprimer la duplication `station.bikeIds` / `bike.stationId` : une seule source de vérité
-- [ ] Réorganiser les tests unitaires par couche ; intégration et E2E inchangés
-- [ ] Supprimer les anciens fichiers (`handlers.ts`, `utils.ts`, `db.ts`, `payment.ts`)
-- [ ] Portes qualité, puis commit
+- [x] Domaine : entités avec leurs règles (`Bike.checkOut()`, `Rental.complete()`), politique de tarif, détection de fraude (S) ; données immuables par défaut, état modifié uniquement par des méthodes qui protègent les invariants (principe V) ; le domaine ne dépend ni d'Express ni de l'infrastructure
+- [x] Services : cas d'utilisation `RentBike`, `ReturnBike`, `GetRental` et `ListStations` (S), chacun avec seulement les ports qu'il utilise
+- [x] Interfaces (ports) pour les repositories, le paiement, la localisation, l'anti-fraude, les notifications, le logger et l'horloge ; implémentations en mémoire et simulées (I, D)
+- [x] Couche HTTP : validation des entrées, mise en forme des réponses, traduction des refus en un seul endroit (`src/presentation/http/`)
+- [x] Composition root qui câble toutes les dépendances (injection de dépendances) : `src/compositionRoot.ts`
+- [x] Supprimer la duplication `station.bikeIds` / `bike.stationId` : une seule source de vérité (`Bike.stationId`)
+- [x] Réorganiser les tests unitaires par couche ; intégration inchangée hors mise en place (P2), E2E inchangé ; aucun cas de test perdu (`specs/001-couche-hexagonales/test-inventory.md`)
+- [x] Supprimer les anciens fichiers (`handlers.ts`, `utils.ts`, `db.ts`, `payment.ts`, `types.ts`)
+- [x] Portes qualité, puis commit : 317 tests verts, couverture 100 % (lignes et branches), mutation 99,54 %, `pnpm load` sans régression (médianes 24 057 / 24 080 ms contre 24 057 / 24 082 ms)
 
 ### 2d. Asynchrone
 
