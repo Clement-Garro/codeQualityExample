@@ -6,13 +6,13 @@ vide quand son fichier d'origine est supprimé. Un cas retiré volontairement po
 
 | Fichier d'origine | describe | it | Repris dans |
 |---|---|---|---|
-| `tests/unit/db.test.ts` | rental ids | starts at 1 and increments on every call | |
-| `tests/unit/db.test.ts` | rental ids | starts again from 1 after a reset | |
-| `tests/unit/db.test.ts` | seed data integrity | starts without any rental | |
-| `tests/unit/db.test.ts` | seed data integrity | lists in each station exactly the bikes located there | |
-| `tests/unit/db.test.ts` | seed data integrity | never puts more bikes in a station than its capacity | |
-| `tests/unit/db.test.ts` | seed data integrity | uses unique ids for stations, bikes and users | |
-| `tests/unit/db.test.ts` | seed data integrity | only uses known bike statuses | |
+| `tests/unit/db.test.ts` | rental ids | starts at 1 and increments on every call |`tests/unit/infrastructure/inMemoryRepositories.test.ts` |
+| `tests/unit/db.test.ts` | rental ids | starts again from 1 after a reset |`tests/unit/infrastructure/inMemoryRepositories.test.ts` |
+| `tests/unit/db.test.ts` | seed data integrity | starts without any rental |`tests/unit/infrastructure/inMemoryRepositories.test.ts` |
+| `tests/unit/db.test.ts` | seed data integrity | lists in each station exactly the bikes located there |`tests/unit/infrastructure/seedData.test.ts` |
+| `tests/unit/db.test.ts` | seed data integrity | never puts more bikes in a station than its capacity |`tests/unit/infrastructure/seedData.test.ts` |
+| `tests/unit/db.test.ts` | seed data integrity | uses unique ids for stations, bikes and users |`tests/unit/infrastructure/seedData.test.ts` |
+| `tests/unit/db.test.ts` | seed data integrity | only uses known bike statuses |`tests/unit/infrastructure/seedData.test.ts` |
 | `tests/unit/handlers.test.ts` | handleRentBike › input validation | answers 400 for an empty body | |
 | `tests/unit/handlers.test.ts` | handleRentBike › input validation | answers 400 for a missing userId | |
 | `tests/unit/handlers.test.ts` | handleRentBike › input validation | answers 400 for a missing stationId | |
@@ -95,20 +95,20 @@ vide quand son fichier d'origine est supprimé. Un cas retiré volontairement po
 | `tests/unit/handlers.test.ts` | inconsistent data | refuses to return a bike whose rental refers to an unknown user, without closing the rental | |
 | `tests/unit/handlers.test.ts` | inconsistent data | refuses to return a bike whose rental refers to an unknown bike, without closing the rental | |
 | `tests/unit/handlers.test.ts` | inconsistent data | refuses to show a rental that refers to an unknown user | |
-| `tests/unit/payment.test.ts` | preAuthorizePayment | authorizes the amount without debiting the user | |
-| `tests/unit/payment.test.ts` | preAuthorizePayment | sends the user and the amount to the payment gateway | |
-| `tests/unit/payment.test.ts` | preAuthorizePayment | accepts a credit exactly equal to the amount | |
-| `tests/unit/payment.test.ts` | preAuthorizePayment | refuses a user whose credit is below the amount | |
-| `tests/unit/payment.test.ts` | preAuthorizePayment | refuses a blacklisted user | |
-| `tests/unit/payment.test.ts` | preAuthorizePayment | reports insufficient funds before the blacklist | |
-| `tests/unit/payment.test.ts` | capturePayment | debits the amount from the user credit | |
-| `tests/unit/payment.test.ts` | capturePayment | sends the user, the payment reference and the amount to the payment gateway | |
-| `tests/unit/payment.test.ts` | capturePayment | accepts a zero amount | |
-| `tests/unit/payment.test.ts` | capturePayment | refuses a negative amount and leaves the credit untouched | |
-| `tests/unit/payment.test.ts` | refundPayment | credits the amount back to the user | |
-| `tests/unit/payment.test.ts` | refundPayment | sends the user, the payment reference and the amount to the payment gateway | |
-| `tests/unit/utils.test.ts` | sleep | blocks for at least the requested duration | |
-| `tests/unit/utils.test.ts` | log | prints the level, the message and the serialized context on one line | |
+| `tests/unit/payment.test.ts` | preAuthorizePayment | authorizes the amount without debiting the user |`tests/unit/infrastructure/simulatedPaymentGateway.test.ts` |
+| `tests/unit/payment.test.ts` | preAuthorizePayment | sends the user and the amount to the payment gateway |`tests/unit/infrastructure/simulatedPaymentGateway.test.ts` |
+| `tests/unit/payment.test.ts` | preAuthorizePayment | accepts a credit exactly equal to the amount |`tests/unit/infrastructure/simulatedPaymentGateway.test.ts` |
+| `tests/unit/payment.test.ts` | preAuthorizePayment | refuses a user whose credit is below the amount |`tests/unit/infrastructure/simulatedPaymentGateway.test.ts` |
+| `tests/unit/payment.test.ts` | preAuthorizePayment | refuses a blacklisted user |`tests/unit/infrastructure/simulatedPaymentGateway.test.ts` |
+| `tests/unit/payment.test.ts` | preAuthorizePayment | reports insufficient funds before the blacklist |`tests/unit/infrastructure/simulatedPaymentGateway.test.ts` |
+| `tests/unit/payment.test.ts` | capturePayment | debits the amount from the user credit |`tests/unit/infrastructure/simulatedPaymentGateway.test.ts` |
+| `tests/unit/payment.test.ts` | capturePayment | sends the user, the payment reference and the amount to the payment gateway |`tests/unit/infrastructure/simulatedPaymentGateway.test.ts` |
+| `tests/unit/payment.test.ts` | capturePayment | accepts a zero amount |`tests/unit/infrastructure/simulatedPaymentGateway.test.ts` |
+| `tests/unit/payment.test.ts` | capturePayment | refuses a negative amount and leaves the credit untouched |`tests/unit/infrastructure/simulatedPaymentGateway.test.ts` |
+| `tests/unit/payment.test.ts` | refundPayment | credits the amount back to the user |retiré : `refundPayment` n'est jamais appelé (research R4) |
+| `tests/unit/payment.test.ts` | refundPayment | sends the user, the payment reference and the amount to the payment gateway |retiré : `refundPayment` n'est jamais appelé (research R4) |
+| `tests/unit/utils.test.ts` | sleep | blocks for at least the requested duration |`tests/unit/infrastructure/simulated.test.ts` |
+| `tests/unit/utils.test.ts` | log | prints the level, the message and the serialized context on one line |`tests/unit/infrastructure/consoleLogger.test.ts` |
 | `tests/unit/utils.test.ts` | hasRequiredFields | returns every field is filled when { userId: 1, stationId: 2 } | |
 | `tests/unit/utils.test.ts` | hasRequiredFields | returns a field is zero when { userId: 0, stationId: 2 } | |
 | `tests/unit/utils.test.ts` | hasRequiredFields | returns a field is a non-empty string when { userId: '1', stationId: '2' } | |
@@ -124,11 +124,11 @@ vide quand son fichier d'origine est supprimé. Un cas retiré volontairement po
 | `tests/unit/utils.test.ts` | roundToCents | rounds 4.6000000001 to 4.6 |`tests/unit/domain/money.test.ts` |
 | `tests/unit/utils.test.ts` | roundToCents | rounds 0.125 to 0.13 |`tests/unit/domain/money.test.ts` |
 | `tests/unit/utils.test.ts` | roundToCents | rounds 10 to 10 |`tests/unit/domain/money.test.ts` |
-| `tests/unit/utils.test.ts` | simulateHttpCall | answers 200, echoes the request and returns a payment reference | |
-| `tests/unit/utils.test.ts` | getLocationInfo | places (48.867, 2.363) in zone "north" with "clear" weather | |
-| `tests/unit/utils.test.ts` | getLocationInfo | places (48.841, 2.322) in zone "south" with "rain" weather | |
-| `tests/unit/utils.test.ts` | getLocationInfo | places (48.85, 2.36) in zone "south" with "rain" weather | |
-| `tests/unit/utils.test.ts` | getLocationInfo | places (48.851, 2.361) in zone "north" with "clear" weather | |
+| `tests/unit/utils.test.ts` | simulateHttpCall | answers 200, echoes the request and returns a payment reference |`tests/unit/infrastructure/simulated.test.ts` |
+| `tests/unit/utils.test.ts` | getLocationInfo | places (48.867, 2.363) in zone "north" with "clear" weather |`tests/unit/infrastructure/simulatedLocationService.test.ts` |
+| `tests/unit/utils.test.ts` | getLocationInfo | places (48.841, 2.322) in zone "south" with "rain" weather |`tests/unit/infrastructure/simulatedLocationService.test.ts` |
+| `tests/unit/utils.test.ts` | getLocationInfo | places (48.85, 2.36) in zone "south" with "rain" weather |`tests/unit/infrastructure/simulatedLocationService.test.ts` |
+| `tests/unit/utils.test.ts` | getLocationInfo | places (48.851, 2.361) in zone "north" with "clear" weather |`tests/unit/infrastructure/simulatedLocationService.test.ts` |
 | `tests/unit/utils.test.ts` | computeFraudScore | scores a premium user with a small amount |`tests/unit/domain/fraud.test.ts` |
 | `tests/unit/utils.test.ts` | computeFraudScore | scores a basic user |`tests/unit/domain/fraud.test.ts` |
 | `tests/unit/utils.test.ts` | computeFraudScore | scores an amount of exactly 40 |`tests/unit/domain/fraud.test.ts` |

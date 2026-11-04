@@ -1,24 +1,6 @@
-import express from 'express';
-import { handleRentBike, handleReturnBike, handleListStations, handleGetRental } from './handlers';
+import { createApplication } from './compositionRoot';
 
-export const app = express();
-app.use(express.json());
-
-app.post('/rent', function (req, res) {
-  handleRentBike(req, res);
-});
-
-app.post('/return', function (req, res) {
-  handleReturnBike(req, res);
-});
-
-app.get('/stations', function (req, res) {
-  handleListStations(req, res);
-});
-
-app.get('/rentals/:id', function (req, res) {
-  handleGetRental(req, res);
-});
+export const app = createApplication().app;
 
 if (require.main === module) {
   app.listen(3000, function () {

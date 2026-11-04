@@ -1,9 +1,22 @@
 import { createRequest, createResponse } from '../support/fakeHttp';
+import { FakePaymentGateway } from '../support/fakePaymentGateway';
 import { FastClock, useFastClock } from '../support/fastClock';
 import { findById } from '../support/findById';
+import { Repositories } from '../../src/application/ports/repositories';
+import { Bike, BikeProperties, BikeStatus } from '../../src/domain/bike';
+import { Station } from '../../src/domain/station';
+import { User, UserProperties } from '../../src/domain/user';
+import { createHandlers, Handlers } from '../../src/handlers';
+import { ConsoleLogger } from '../../src/infrastructure/consoleLogger';
+import { createInMemoryRepositories } from '../../src/infrastructure/inMemory/inMemoryRepositories';
+import { createSeedData, SeedData } from '../../src/infrastructure/inMemory/seedData';
+import { SimulatedFleetNotifier } from '../../src/infrastructure/simulated/simulatedFleetNotifier';
+import { SimulatedFraudScreening } from '../../src/infrastructure/simulated/simulatedFraudScreening';
+import { SimulatedLocationService } from '../../src/infrastructure/simulated/simulatedLocationService';
+import { SystemClock } from '../../src/infrastructure/systemClock';
 
-// The payment gateway is an external system: it is replaced by a mock in unit tests.
-jest.mock('../../src/payment');
+// The payment gateway is an external system: it is replaced by a fake in unit tests.
+// The storage, the other simulated services, the logger and the clock are the real ones.
 
 const ALICE = 1; // premium, credit 50
 const BOB = 2; // basic, credit 4
@@ -18,18 +31,29 @@ const NATION = 4; // bike 10 (electric, 640 km)
 const CLASSIC_BIKE = 1;
 const ELECTRIC_BIKE = 4;
 
-let handlers: typeof import('../../src/handlers');
-let db: typeof import('../../src/db');
-let payment: jest.Mocked<typeof import('../../src/payment')>;
+let handlers: Handlers;
+let repositories: Repositories;
+let payment: FakePaymentGateway;
 let clock: FastClock;
 
+/** Builds the handlers on a fresh copy of the data, the way the composition root does. */
+function setUp(seed: SeedData = createSeedData()) {
+  repositories = createInMemoryRepositories(seed);
+  payment = new FakePaymentGateway();
+  const logger = new ConsoleLogger();
+  handlers = createHandlers({
+    ...repositories,
+    paymentGateway: payment,
+    locationService: new SimulatedLocationService(),
+    fraudScreening: new SimulatedFraudScreening(),
+    fleetNotifier: new SimulatedFleetNotifier(logger),
+    logger: logger,
+    clock: new SystemClock()
+  });
+}
+
 beforeEach(() => {
-  jest.resetModules();
-  db = require('../../src/db');
-  payment = require('../../src/payment');
-  handlers = require('../../src/handlers');
-  payment.preAuthorizePayment.mockImplementation((_user, amount) => ({ success: true, reference: 'REF-PREAUTH', amount }));
-  payment.capturePayment.mockReturnValue({ success: true, reference: 'REF-CAPTURE' });
+  setUp();
   clock = useFastClock();
 });
 
@@ -57,16 +81,51 @@ function getRental(id: number | string) {
   return response;
 }
 
+function requireFound<T>(record: T | undefined, description: string): T {
+  if (record === undefined) {
+    throw new Error(`test setup: no ${description}`);
+  }
+  return record;
+}
+
 function findUser(id: number) {
-  return findById(db.users, id);
+  return requireFound(repositories.users.findById(id), 'user ' + id);
 }
 
 function findBike(id: number) {
-  return findById(db.bikes, id);
+  return requireFound(repositories.bikes.findById(id), 'bike ' + id);
 }
 
-function findStation(id: number) {
-  return findById(db.stations, id);
+function findRental(id: number) {
+  return findById(repositories.rentals.findAll(), id);
+}
+
+function dockedBikeIdsAt(stationId: number) {
+  return repositories.bikes.findDockedAt(stationId).map((bike) => bike.id);
+}
+
+function updateUser(id: number, changes: Partial<UserProperties>) {
+  repositories.users.save(User.restore({ ...findUser(id), ...changes }));
+}
+
+function updateBike(id: number, changes: Partial<BikeProperties>) {
+  repositories.bikes.save(Bike.restore({ ...findBike(id), ...changes }));
+}
+
+function seedWithCapacity(stationId: number, capacity: number): SeedData {
+  const seed = createSeedData();
+  const stations = seed.stations.map((station) =>
+    station.id === stationId ? Station.restore({ ...station, capacity }) : station
+  );
+  return { ...seed, stations };
+}
+
+/** Simulates corrupted data: the record still exists, but can no longer be found. */
+function makeUnfindable(repository: { findById(id: number): unknown }, missingId: number) {
+  const findRecord = repository.findById.bind(repository);
+  jest
+    .spyOn(repository, 'findById')
+    .mockImplementation((id: number) => (id === missingId ? undefined : findRecord(id)));
 }
 
 function rentForMinutes(userId: number, bikeId: number, minutes: number) {
@@ -119,13 +178,13 @@ describe('handleRentBike', () => {
     });
 
     it('picks the lowest mileage even when that bike is not the last one listed', () => {
-      findBike(9).kilometers = 500;
+      updateBike(9, { kilometers: 500 });
 
       expect(rentBike({ userId: CAROL, stationId: MONTPARNASSE }).body.bikeId).toBe(7);
     });
 
     it('keeps the first listed bike when two bikes have the same mileage', () => {
-      findBike(8).kilometers = 22;
+      updateBike(8, { kilometers: 22 });
 
       expect(rentBike({ userId: CAROL, stationId: MONTPARNASSE }).body.bikeId).toBe(8);
     });
@@ -197,7 +256,7 @@ describe('handleRentBike', () => {
     });
 
     it('accepts a user with exactly 5 of credit', () => {
-      findUser(CAROL).credit = 5;
+      updateUser(CAROL, { credit: 5 });
 
       expect(rentBike({ userId: CAROL, stationId: REPUBLIQUE, bikeId: CLASSIC_BIKE }).statusCode).toBe(200);
     });
@@ -207,12 +266,12 @@ describe('handleRentBike', () => {
 
       expect(response.statusCode).toBe(403);
       expect(response.body).toEqual({ msg: 'refused' });
-      expect(payment.preAuthorizePayment).not.toHaveBeenCalled();
-      expect(db.rentals).toHaveLength(0);
+      expect(payment.preAuthorize).not.toHaveBeenCalled();
+      expect(repositories.rentals.findAll()).toHaveLength(0);
     });
 
     it('refuses a blacklisted premium user, whose fraud score is exactly 100', () => {
-      findUser(ALICE).isBlacklisted = true;
+      updateUser(ALICE, { isBlacklisted: true });
 
       expect(rentBike({ userId: ALICE, stationId: REPUBLIQUE }).statusCode).toBe(403);
     });
@@ -220,14 +279,14 @@ describe('handleRentBike', () => {
     it('pre-authorizes 5 for a classic bike', () => {
       const response = rentBike({ userId: CAROL, stationId: REPUBLIQUE, bikeId: CLASSIC_BIKE });
 
-      expect(payment.preAuthorizePayment).toHaveBeenCalledWith(findUser(CAROL), 5);
+      expect(payment.preAuthorize).toHaveBeenCalledWith(findUser(CAROL), 5);
       expect(response.body.preAuth).toBe(5);
     });
 
     it('pre-authorizes 7.50 for an electric bike', () => {
       const response = rentBike({ userId: CAROL, stationId: REPUBLIQUE, bikeId: ELECTRIC_BIKE });
 
-      expect(payment.preAuthorizePayment).toHaveBeenCalledWith(findUser(CAROL), 7.5);
+      expect(payment.preAuthorize).toHaveBeenCalledWith(findUser(CAROL), 7.5);
       expect(response.body.preAuth).toBe(7.5);
     });
   });
@@ -250,7 +309,7 @@ describe('handleRentBike', () => {
     it('records an open rental', () => {
       rentBike({ userId: ALICE, stationId: REPUBLIQUE });
 
-      expect(db.rentals).toEqual([
+      expect(repositories.rentals.findAll()).toEqual([
         {
           id: 1,
           userId: ALICE,
@@ -262,7 +321,8 @@ describe('handleRentBike', () => {
           paymentReference: 'REF-PREAUTH',
           preAuthAmount: 7.5,
           isElectric: true,
-          status: 1
+          status: 1,
+          price: null
         }
       ]);
     });
@@ -271,7 +331,7 @@ describe('handleRentBike', () => {
       rentBike({ userId: ALICE, stationId: REPUBLIQUE });
 
       expect(findBike(ELECTRIC_BIKE).status).toBe(1);
-      expect(findStation(REPUBLIQUE).bikeIds).toEqual([1, 2, 3]);
+      expect(dockedBikeIdsAt(REPUBLIQUE)).toEqual([1, 2, 3]);
     });
 
     it('gives each rental its own increasing id', () => {
@@ -327,14 +387,14 @@ describe('handleReturnBike', () => {
     });
 
     it('answers 409 when the return station is full', () => {
+      setUp(seedWithCapacity(NATION, 1)); // Nation holds a single bike: it is full
       const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 10);
-      findStation(NATION).capacity = findStation(NATION).bikeIds.length;
 
       const response = returnBike({ rentalId, stationId: NATION });
 
       expect(response.statusCode).toBe(409);
       expect(response.body).toEqual({ msg: 'station full' });
-      expect(payment.capturePayment).not.toHaveBeenCalled();
+      expect(payment.capture).not.toHaveBeenCalled();
     });
   });
 
@@ -383,7 +443,7 @@ describe('handleReturnBike', () => {
       const response = returnBike({ rentalId: carolRentalId, stationId: BASTILLE });
 
       expect(response.body.rentalId).toBe(carolRentalId);
-      expect(findById(db.rentals, aliceRentalId).endTime).toBeNull();
+      expect(findRental(aliceRentalId).endTime).toBeNull();
     });
 
     it('closes a rental that is not the first one in the list', () => {
@@ -393,15 +453,16 @@ describe('handleReturnBike', () => {
       const response = returnBike({ rentalId: aliceRentalId, stationId: BASTILLE });
 
       expect(response.body.rentalId).toBe(aliceRentalId);
-      expect(findById(db.rentals, carolRentalId).endTime).toBeNull();
+      expect(findRental(carolRentalId).endTime).toBeNull();
     });
 
     it('captures the price on the pre-authorized payment', () => {
       const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
+      const carolBeforeReturn = findUser(CAROL);
 
       returnBike({ rentalId, stationId: BASTILLE });
 
-      expect(payment.capturePayment).toHaveBeenCalledWith(findUser(CAROL), 'REF-PREAUTH', 3.25);
+      expect(payment.capture).toHaveBeenCalledWith(carolBeforeReturn, 'REF-PREAUTH', 3.25);
     });
 
     it('closes the rental', () => {
@@ -409,7 +470,7 @@ describe('handleReturnBike', () => {
 
       returnBike({ rentalId, stationId: BASTILLE });
 
-      expect(db.rentals[0]).toMatchObject({
+      expect(repositories.rentals.findAll()[0]).toMatchObject({
         endTime: expect.any(Number),
         endStationId: BASTILLE,
         status: 2,
@@ -423,20 +484,35 @@ describe('handleReturnBike', () => {
       returnBike({ rentalId, stationId: BASTILLE });
 
       expect(findBike(CLASSIC_BIKE)).toMatchObject({ status: 0, stationId: BASTILLE, kilometers: 120 + 11 });
-      expect(findStation(BASTILLE).bikeIds).toEqual([5, 6, CLASSIC_BIKE]);
+      expect(dockedBikeIdsAt(BASTILLE)).toEqual([CLASSIC_BIKE, 5, 6]);
     });
 
     it('still closes the rental but reports captured: false when the capture fails', () => {
-      payment.capturePayment.mockImplementation(() => {
-        throw new Error('gateway down');
-      });
+      payment.failCaptures();
       const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
 
       const response = returnBike({ rentalId, stationId: BASTILLE });
 
       expect(response.statusCode).toBe(200);
       expect(response.body.captured).toBe(false);
-      expect(db.rentals[0].status).toBe(2);
+      expect(repositories.rentals.findAll()[0].status).toBe(2);
+    });
+
+    it('debits the user only when the payment is captured', () => {
+      payment.failCaptures();
+      const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
+
+      returnBike({ rentalId, stationId: BASTILLE });
+
+      expect(findUser(CAROL).credit).toBe(120);
+    });
+
+    it('debits the price from the user once the payment is captured', () => {
+      const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
+
+      returnBike({ rentalId, stationId: BASTILLE });
+
+      expect(findUser(CAROL).credit).toBeCloseTo(120 - 3.25);
     });
   });
 
@@ -459,8 +535,10 @@ describe('handleReturnBike', () => {
 
     it('does not ask for rebalancing when the station is exactly at the threshold', () => {
       const rentalId = rentBike({ userId: CAROL, stationId: MONTPARNASSE }).body.rentalId;
-      // After the return: 2 + 3 + 2 + 1 = 8 docked bikes, average 2, threshold 3, Bastille holds 3.
-      findStation(REPUBLIQUE).bikeIds = [1, 2];
+      // Bikes 3 and 4 leave Republique. After the return: 2 + 3 + 2 + 1 = 8 docked bikes, average 2,
+      // threshold 3, Bastille holds 3.
+      updateBike(3, { status: BikeStatus.Rented, stationId: null });
+      updateBike(4, { status: BikeStatus.Rented, stationId: null });
 
       returnBike({ rentalId, stationId: BASTILLE });
 
@@ -605,9 +683,7 @@ describe('handleGetRental', () => {
 
 describe('handleRentBike when the payment pre-authorization is declined', () => {
   beforeEach(() => {
-    payment.preAuthorizePayment.mockImplementation(() => {
-      throw new Error('insufficient funds');
-    });
+    payment.declinePreAuthorizations('insufficient funds');
   });
 
   it('refuses the rental with 402 payment declined', () => {
@@ -620,19 +696,19 @@ describe('handleRentBike when the payment pre-authorization is declined', () => 
   it('does not record any rental', () => {
     rentBike({ userId: CAROL, stationId: REPUBLIQUE });
 
-    expect(db.rentals).toHaveLength(0);
+    expect(repositories.rentals.findAll()).toHaveLength(0);
   });
 
   it('leaves the bike available at its station', () => {
     rentBike({ userId: CAROL, stationId: REPUBLIQUE, bikeId: ELECTRIC_BIKE });
 
     expect(findBike(ELECTRIC_BIKE).status).toBe(0);
-    expect(findStation(REPUBLIQUE).bikeIds).toEqual([1, 2, 3, 4]);
+    expect(dockedBikeIdsAt(REPUBLIQUE)).toEqual([1, 2, 3, 4]);
   });
 
   it('does not consume a rental id', () => {
     rentBike({ userId: CAROL, stationId: REPUBLIQUE });
-    payment.preAuthorizePayment.mockImplementation((_user, amount) => ({ success: true, reference: 'REF-PREAUTH', amount }));
+    payment.approvePreAuthorizations();
 
     expect(rentBike({ userId: CAROL, stationId: REPUBLIQUE }).body.rentalId).toBe(1);
   });
@@ -661,31 +737,27 @@ describe('handleGetRental estimate', () => {
 // true, the data is corrupted: the handlers fail fast instead of charging the wrong price or
 // silently skipping the bike.
 describe('inconsistent data', () => {
-  function deleteRecord<T extends { id: number }>(records: T[], id: number) {
-    records.splice(records.indexOf(findById(records, id)), 1);
-  }
-
   it('refuses to return a bike whose rental refers to an unknown user, without closing the rental', () => {
     const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
-    deleteRecord(db.users, CAROL);
+    makeUnfindable(repositories.users, CAROL);
 
     expect(() => returnBike({ rentalId, stationId: BASTILLE })).toThrow('inconsistent data: user 3 of rental 1 not found');
-    expect(findById(db.rentals, rentalId).endTime).toBeNull();
-    expect(payment.capturePayment).not.toHaveBeenCalled();
+    expect(findRental(rentalId).endTime).toBeNull();
+    expect(payment.capture).not.toHaveBeenCalled();
   });
 
   it('refuses to return a bike whose rental refers to an unknown bike, without closing the rental', () => {
     const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
-    deleteRecord(db.bikes, CLASSIC_BIKE);
+    makeUnfindable(repositories.bikes, CLASSIC_BIKE);
 
     expect(() => returnBike({ rentalId, stationId: BASTILLE })).toThrow('inconsistent data: bike 1 of rental 1 not found');
-    expect(findById(db.rentals, rentalId).endTime).toBeNull();
-    expect(payment.capturePayment).not.toHaveBeenCalled();
+    expect(findRental(rentalId).endTime).toBeNull();
+    expect(payment.capture).not.toHaveBeenCalled();
   });
 
   it('refuses to show a rental that refers to an unknown user', () => {
     const rentalId = rentForMinutes(CAROL, CLASSIC_BIKE, 45);
-    deleteRecord(db.users, CAROL);
+    makeUnfindable(repositories.users, CAROL);
 
     expect(() => getRental(rentalId)).toThrow('inconsistent data: user 3 of rental 1 not found');
   });

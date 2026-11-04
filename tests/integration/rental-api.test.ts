@@ -1,9 +1,11 @@
 import request from 'supertest';
+import { Application, createApplication } from '../../src/compositionRoot';
+import { User } from '../../src/domain/user';
 import { FastClock, useFastClock } from '../support/fastClock';
-import { findById } from '../support/findById';
 
 // Integration tests: the real Express app with its real modules (routing, JSON parsing,
-// handlers, in-memory database and payment client) wired together, without any mock.
+// handlers, in-memory storage and simulated payment client) wired together by the composition root,
+// without any mock.
 // Only the clock is accelerated so that simulated network delays do not slow the suite down.
 
 const ALICE = 1;
@@ -12,15 +14,13 @@ const DAVE = 4;
 const REPUBLIQUE = 1;
 const BASTILLE = 2;
 
-let app: typeof import('../../src/index').app;
-let db: typeof import('../../src/db');
+let app: Application['app'];
+let repositories: Application['repositories'];
 let clock: FastClock;
 
 beforeEach(() => {
-  // Fresh modules for every test: each test starts from the seed data.
-  jest.resetModules();
-  db = require('../../src/db');
-  app = require('../../src/index').app;
+  // A new application for every test: each test starts from the seed data.
+  ({ app, repositories } = createApplication());
   clock = useFastClock();
 });
 
@@ -88,19 +88,19 @@ describe('rental lifecycle through the HTTP API', () => {
 
   it('refuses the rental when the real payment gateway declines the pre-authorization', async () => {
     // 6 of credit: enough to pass the 5 minimum, not enough for the 7.50 electric pre-authorization.
-    findById(db.users, CAROL).credit = 6;
+    setCredit(CAROL, 6);
 
     const response = await request(app).post('/rent').send({ userId: CAROL, stationId: REPUBLIQUE, bikeId: 4 });
 
     expect(response.status).toBe(402);
     expect(response.body).toEqual({ msg: 'payment declined' });
-    expect(db.rentals).toHaveLength(0);
+    expect(repositories.rentals.findAll()).toHaveLength(0);
     const republique = (await request(app).get('/stations')).body[0];
     expect(republique.bikes.map((bike: { id: number }) => bike.id)).toContain(4);
   });
 
   it('lets a declined user rent a cheaper classic bike instead', async () => {
-    findById(db.users, CAROL).credit = 6;
+    setCredit(CAROL, 6);
     await request(app).post('/rent').send({ userId: CAROL, stationId: REPUBLIQUE, bikeId: 4 });
 
     const response = await request(app).post('/rent').send({ userId: CAROL, stationId: REPUBLIQUE, bikeId: 1 });
@@ -154,6 +154,18 @@ describe('HTTP layer', () => {
   });
 });
 
+function findUser(userId: number) {
+  const user = repositories.users.findById(userId);
+  if (user === undefined) {
+    throw new Error(`test setup: no user with id ${userId}`);
+  }
+  return user;
+}
+
+function setCredit(userId: number, credit: number) {
+  repositories.users.save(User.restore({ ...findUser(userId), credit }));
+}
+
 function creditOf(userId: number) {
-  return findById(db.users, userId).credit;
+  return findUser(userId).credit;
 }
