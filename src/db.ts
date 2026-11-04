@@ -1,15 +1,58 @@
-import { Bike, BikeStatus, Rental, Station, Subscription, User } from './types';
+import { BikeStatus } from './domain/bike';
+import { RentalStatus } from './domain/rental';
+import { Subscription } from './domain/user';
 
 // In-memory storage, reset on every restart.
+// TEMPORARY (2c, P1): plain records, replaced by repositories of domain entities in P2.
 
-export const stations: Station[] = [
+export interface StationRecord {
+  id: number;
+  name: string;
+  capacity: number;
+  latitude: number;
+  longitude: number;
+  bikeIds: number[];
+}
+
+export interface BikeRecord {
+  id: number;
+  stationId: number;
+  status: BikeStatus;
+  kilometers: number;
+  isElectric: boolean;
+}
+
+export interface UserRecord {
+  id: number;
+  name: string;
+  credit: number;
+  subscription: Subscription;
+  isBlacklisted: boolean;
+}
+
+export interface RentalRecord {
+  id: number;
+  userId: number;
+  bikeId: number;
+  startStationId: number;
+  startTime: number;
+  endTime: number | null;
+  endStationId: number | null;
+  paymentReference: string;
+  preAuthAmount: number;
+  isElectric: boolean;
+  status: RentalStatus;
+  price?: number;
+}
+
+export const stations: StationRecord[] = [
   { id: 1, name: 'Republique', capacity: 20, latitude: 48.867, longitude: 2.363, bikeIds: [1, 2, 3, 4] },
   { id: 2, name: 'Bastille', capacity: 15, latitude: 48.853, longitude: 2.369, bikeIds: [5, 6] },
   { id: 3, name: 'Montparnasse', capacity: 25, latitude: 48.841, longitude: 2.322, bikeIds: [7, 8, 9] },
   { id: 4, name: 'Nation', capacity: 12, latitude: 48.848, longitude: 2.395, bikeIds: [10] }
 ];
 
-export const bikes: Bike[] = [
+export const bikes: BikeRecord[] = [
   { id: 1, stationId: 1, status: BikeStatus.Available, kilometers: 120, isElectric: false },
   { id: 2, stationId: 1, status: BikeStatus.Available, kilometers: 340, isElectric: true },
   { id: 3, stationId: 1, status: BikeStatus.Maintenance, kilometers: 900, isElectric: false },
@@ -22,14 +65,14 @@ export const bikes: Bike[] = [
   { id: 10, stationId: 4, status: BikeStatus.Available, kilometers: 640, isElectric: true }
 ];
 
-export const users: User[] = [
+export const users: UserRecord[] = [
   { id: 1, name: 'alice', credit: 50, subscription: Subscription.Premium, isBlacklisted: false },
   { id: 2, name: 'bob', credit: 4, subscription: Subscription.Basic, isBlacklisted: false },
   { id: 3, name: 'carol', credit: 120, subscription: Subscription.Basic, isBlacklisted: false },
   { id: 4, name: 'dave', credit: 30, subscription: Subscription.Basic, isBlacklisted: true }
 ];
 
-export const rentals: Rental[] = [];
+export const rentals: RentalRecord[] = [];
 
 let nextAvailableRentalId = 1;
 

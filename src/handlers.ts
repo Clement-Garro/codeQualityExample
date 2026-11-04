@@ -1,24 +1,16 @@
-import { stations, bikes, users, rentals, generateRentalId } from './db';
-import {
-  sleep,
-  log,
-  hasRequiredFields,
-  roundToCents,
-  getLocationInfo,
-  computeFraudScore,
-  computeDurationMinutes,
-  computeRentalPrice
-} from './utils';
-import {
-  BASE_PRE_AUTHORIZATION_AMOUNT,
-  ELECTRIC_PRE_AUTHORIZATION_SURCHARGE,
-  FRAUD_REFUSAL_SCORE,
-  MINIMUM_CREDIT_TO_RENT,
-  REBALANCING_THRESHOLD_FACTOR,
-  RIDING_MINUTES_PER_KILOMETER
-} from './businessRules';
+import { stations, bikes, users, rentals, generateRentalId, BikeRecord, RentalRecord } from './db';
+import { sleep, log, hasRequiredFields, getLocationInfo } from './utils';
 import { preAuthorizePayment, capturePayment, CapturedPayment, PreAuthorization } from './payment';
-import { Bike, BikeStatus, Rental, RentalStatus } from './types';
+import { Bike, BikeStatus } from './domain/bike';
+import { selectBike } from './domain/bikeSelection';
+import { InconsistentDataError } from './domain/errors';
+import { computeRiddenKilometers, isRebalancingNeeded } from './domain/fleet';
+import { computeFraudScore, isFraudSuspected } from './domain/fraud';
+import { roundToCents } from './domain/money';
+import { computeDurationMinutes, computePreAuthorizationAmount, computeRentalPrice } from './domain/pricing';
+import { Rental } from './domain/rental';
+import { Station } from './domain/station';
+import { User } from './domain/user';
 
 // The handlers only depend on the part of the HTTP request and response they use,
 // so Express and the test doubles can both be passed in.
@@ -39,12 +31,50 @@ interface ListedBike {
   broken?: true;
 }
 
+// Simulated delay of the external anti-fraud service, kept until the services become asynchronous (step 2d).
+const FRAUD_CHECK_DELAY_MS = 200;
+
 /** Fails fast when a record that the data guarantees to exist is missing: the data is corrupted. */
 function requireExisting<T>(record: T | undefined, description: string): T {
   if (record === undefined) {
-    throw new Error('inconsistent data: ' + description + ' not found');
+    throw new InconsistentDataError(description);
   }
   return record;
+}
+
+// TEMPORARY (2c, P1): removed in P2. The storage still holds plain records; these conversions let the
+// domain entities check every state change, then copy the result back into the records.
+function toBike(record: BikeRecord): Bike {
+  // A rented bike keeps its last station in the records, but it is parked nowhere.
+  return Bike.restore({ ...record, stationId: record.status === BikeStatus.Rented ? null : record.stationId });
+}
+
+function applyBike(record: BikeRecord, bike: Bike): void {
+  record.status = bike.status;
+  record.kilometers = bike.kilometers;
+  if (bike.stationId !== null) {
+    record.stationId = bike.stationId;
+  }
+}
+
+function toRental(record: RentalRecord): Rental {
+  return Rental.restore({ ...record, price: record.price === undefined ? null : record.price });
+}
+
+function toRentalRecord(rental: Rental): RentalRecord {
+  return {
+    id: rental.id,
+    userId: rental.userId,
+    bikeId: rental.bikeId,
+    startStationId: rental.startStationId,
+    endTime: rental.endTime,
+    endStationId: rental.endStationId,
+    startTime: rental.startTime,
+    paymentReference: rental.paymentReference,
+    preAuthAmount: rental.preAuthAmount,
+    isElectric: rental.isElectric,
+    status: rental.status
+  };
 }
 
 export function handleRentBike(req: HttpRequest, res: HttpResponse): void {
@@ -60,7 +90,7 @@ export function handleRentBike(req: HttpRequest, res: HttpResponse): void {
       if (station === undefined) {
         res.status(404).json({ msg: 'no station' });
       } else {
-        const availableBikes: Bike[] = [];
+        const availableBikes: BikeRecord[] = [];
         for (let i = 0; i < bikes.length; i++) {
           const bike = bikes[i];
           if (bike.stationId === station.id) {
@@ -73,24 +103,9 @@ export function handleRentBike(req: HttpRequest, res: HttpResponse): void {
             }
           }
         }
-        let selectedBike: Bike | undefined = undefined;
-        if (requestBody.bikeId !== undefined && requestBody.bikeId !== null) {
-          selectedBike = availableBikes.find((candidate) => candidate.id === Number(requestBody.bikeId));
-        } else {
-          let leastUsedBikeIndex = -1;
-          for (let i = 0; i < availableBikes.length; i++) {
-            if (leastUsedBikeIndex === -1) {
-              leastUsedBikeIndex = i;
-            } else {
-              if (availableBikes[i].kilometers < availableBikes[leastUsedBikeIndex].kilometers) {
-                leastUsedBikeIndex = i;
-              }
-            }
-          }
-          if (leastUsedBikeIndex >= 0) {
-            selectedBike = availableBikes[leastUsedBikeIndex];
-          }
-        }
+        const requestedBikeId =
+          requestBody.bikeId !== undefined && requestBody.bikeId !== null ? Number(requestBody.bikeId) : null;
+        const selectedBike = selectBike(availableBikes, requestedBikeId);
         if (selectedBike === undefined) {
           res.status(409).json({ msg: 'no bike available' });
         } else {
@@ -105,15 +120,13 @@ export function handleRentBike(req: HttpRequest, res: HttpResponse): void {
           if (openRentalCount > 0) {
             res.status(409).json({ msg: 'already renting' });
           } else {
-            if (user.credit < MINIMUM_CREDIT_TO_RENT) {
+            if (!User.restore(user).hasMinimumCreditToRent()) {
               res.status(402).json({ msg: 'not enough credit' });
             } else {
-              let preAuthAmount = BASE_PRE_AUTHORIZATION_AMOUNT;
-              if (selectedBike.isElectric === true) {
-                preAuthAmount = preAuthAmount + ELECTRIC_PRE_AUTHORIZATION_SURCHARGE;
-              }
+              const preAuthAmount = computePreAuthorizationAmount(selectedBike.isElectric);
+              sleep(FRAUD_CHECK_DELAY_MS);
               const fraudScore = computeFraudScore(user, preAuthAmount);
-              if (fraudScore >= FRAUD_REFUSAL_SCORE) {
+              if (isFraudSuspected(fraudScore)) {
                 res.status(403).json({ msg: 'refused' });
               } else {
                 let preAuthorization: PreAuthorization;
@@ -125,21 +138,18 @@ export function handleRentBike(req: HttpRequest, res: HttpResponse): void {
                   res.status(402).json({ msg: 'payment declined' });
                   return;
                 }
-                const rental: Rental = {
+                const rental = Rental.open({
                   id: generateRentalId(),
                   userId: user.id,
                   bikeId: selectedBike.id,
                   startStationId: station.id,
-                  endTime: null,
-                  endStationId: null,
                   startTime: Date.now(),
                   paymentReference: preAuthorization.reference,
                   preAuthAmount: preAuthAmount,
-                  isElectric: selectedBike.isElectric,
-                  status: RentalStatus.Open
-                };
-                rentals.push(rental);
-                selectedBike.status = BikeStatus.Rented;
+                  isElectric: selectedBike.isElectric
+                });
+                rentals.push(toRentalRecord(rental));
+                applyBike(selectedBike, toBike(selectedBike).checkOut());
                 const remainingBikeIds: number[] = [];
                 for (let i = 0; i < station.bikeIds.length; i++) {
                   if (station.bikeIds[i] !== selectedBike.id) {
@@ -173,18 +183,19 @@ export function handleReturnBike(req: HttpRequest, res: HttpResponse): void {
   if (!hasRequiredFields(requestBody, ['rentalId', 'stationId'])) {
     res.status(400).json({ msg: 'bad request' });
   } else {
-    const rental = rentals.find((candidate) => candidate.id === Number(requestBody.rentalId));
-    if (rental === undefined) {
+    const rentalRecord = rentals.find((candidate) => candidate.id === Number(requestBody.rentalId));
+    if (rentalRecord === undefined) {
       res.status(404).json({ msg: 'no rental' });
     } else {
-      if (rental.endTime !== null) {
+      const rental = toRental(rentalRecord);
+      if (!rental.isOpen()) {
         res.status(409).json({ msg: 'already returned' });
       } else {
         const returnStation = stations.find((candidate) => candidate.id === Number(requestBody.stationId));
         if (returnStation === undefined) {
           res.status(404).json({ msg: 'no station' });
         } else {
-          if (returnStation.bikeIds.length >= returnStation.capacity) {
+          if (!Station.restore(returnStation).hasFreeSlot(returnStation.bikeIds.length)) {
             res.status(409).json({ msg: 'station full' });
           } else {
             const user = requireExisting(
@@ -201,20 +212,27 @@ export function handleReturnBike(req: HttpRequest, res: HttpResponse): void {
             try {
               capturedPayment = capturePayment(user, rental.paymentReference, price);
             } catch (error) {}
-            rental.endTime = Date.now();
-            rental.endStationId = returnStation.id;
-            rental.status = RentalStatus.Completed;
-            rental.price = price;
-            bike.status = BikeStatus.Available;
-            bike.stationId = returnStation.id;
-            bike.kilometers = bike.kilometers + Math.floor(durationMinutes / RIDING_MINUTES_PER_KILOMETER);
+            const completedRental = rental.complete({
+              endTime: Date.now(),
+              endStationId: returnStation.id,
+              price: price
+            });
+            rentalRecord.endTime = completedRental.endTime;
+            rentalRecord.endStationId = completedRental.endStationId;
+            rentalRecord.status = completedRental.status;
+            rentalRecord.price = price;
+            applyBike(bike, toBike(bike).dockAt(returnStation.id, computeRiddenKilometers(durationMinutes)));
             returnStation.bikeIds.push(bike.id);
             let totalDockedBikes = 0;
             for (let i = 0; i < stations.length; i++) {
               totalDockedBikes = totalDockedBikes + stations[i].bikeIds.length;
             }
-            const averageBikesPerStation = totalDockedBikes / stations.length;
-            if (returnStation.bikeIds.length > averageBikesPerStation * REBALANCING_THRESHOLD_FACTOR) {
+            const occupancy = {
+              dockedBikeCount: returnStation.bikeIds.length,
+              totalDockedBikeCount: totalDockedBikes,
+              stationCount: stations.length
+            };
+            if (isRebalancingNeeded(occupancy)) {
               try {
                 sleep(150);
                 log('INFO', 'rebalancing triggered', returnStation.id);
@@ -278,15 +296,16 @@ export function handleListStations(_req: HttpRequest, res: HttpResponse): void {
 
 export function handleGetRental(req: HttpRequest, res: HttpResponse): void {
   const rentalId = Number(req.params.id);
-  const rental = rentals.find((candidate) => candidate.id === rentalId);
-  if (rental === undefined) {
+  const rentalRecord = rentals.find((candidate) => candidate.id === rentalId);
+  if (rentalRecord === undefined) {
     res.status(404).json({ msg: 'no rental' });
   } else {
+    const rental = toRental(rentalRecord);
     const user = requireExisting(
       users.find((candidate) => candidate.id === rental.userId),
       'user ' + rental.userId + ' of rental ' + rental.id
     );
-    const durationMinutes = computeDurationMinutes(rental.startTime, rental.endTime === null ? Date.now() : rental.endTime);
+    const durationMinutes = rental.durationMinutesAt(Date.now());
     const price = computeRentalPrice(durationMinutes, rental.isElectric, user.subscription);
     res.json({
       msg: 'ok',
@@ -295,7 +314,7 @@ export function handleGetRental(req: HttpRequest, res: HttpResponse): void {
       minutes: durationMinutes,
       price: price,
       estimate: price,
-      open: rental.endTime === null
+      open: rental.isOpen()
     });
   }
 }
