@@ -43,6 +43,14 @@ function rentedBikeId(userId: number, stationId: number, requestedBikeId: number
   return result.isSuccess ? result.value.rental.bikeId : undefined;
 }
 
+/** The rental started by a successful result; fails the test setup when the rental was refused. */
+function startedRental(result: ReturnType<typeof rent>) {
+  if (!result.isSuccess) {
+    throw new Error(`test setup: the rental was refused (${result.refusal})`);
+  }
+  return result.value.rental;
+}
+
 function refusalOf(userId: number, stationId: number, requestedBikeId: number | null = NO_PREFERENCE) {
   const result = rent(userId, stationId, requestedBikeId);
   return result.isSuccess ? undefined : result.refusal;
@@ -179,9 +187,8 @@ describe('business rules', () => {
   });
 
   it('lets the user rent again once the previous bike is returned', () => {
-    const firstResult = rent(CAROL, REPUBLIQUE);
-    const firstRental = firstResult.isSuccess ? firstResult.value.rental : undefined;
-    fixture.rentals.save(firstRental!.complete({ endTime: START_TIME, endStationId: BASTILLE, price: 1 }));
+    const firstRental = startedRental(rent(CAROL, REPUBLIQUE));
+    fixture.rentals.save(firstRental.complete({ endTime: START_TIME, endStationId: BASTILLE, price: 1 }));
 
     expect(rent(CAROL, MONTPARNASSE).isSuccess).toBe(true);
   });

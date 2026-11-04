@@ -27,6 +27,21 @@ function openRentalFor(userId: number, id: number) {
 
 let repositories: ReturnType<typeof createInMemoryRepositories>;
 
+function requireFound<T>(entity: T | undefined, description: string): T {
+  if (entity === undefined) {
+    throw new Error(`test setup: no ${description}`);
+  }
+  return entity;
+}
+
+function findBike(id: number) {
+  return requireFound(repositories.bikes.findById(id), 'bike ' + id);
+}
+
+function findUser(id: number) {
+  return requireFound(repositories.users.findById(id), 'user ' + id);
+}
+
 beforeEach(() => {
   repositories = createInMemoryRepositories(createSeedData());
 });
@@ -63,7 +78,7 @@ describe('bike repository', () => {
   });
 
   it('replaces a bike when it is saved, at the same place in the data', () => {
-    const classicBike = repositories.bikes.findById(CLASSIC_BIKE)!;
+    const classicBike = findBike(CLASSIC_BIKE);
     const rentedBike = Bike.restore({ ...classicBike, status: BikeStatus.Rented, stationId: null });
 
     repositories.bikes.save(rentedBike);
@@ -74,7 +89,7 @@ describe('bike repository', () => {
   });
 
   it('keeps the data order when a bike is parked at another station', () => {
-    const rentedBike = repositories.bikes.findById(CLASSIC_BIKE)!.checkOut();
+    const rentedBike = findBike(CLASSIC_BIKE).checkOut();
     repositories.bikes.save(rentedBike);
 
     repositories.bikes.save(rentedBike.dockAt(BASTILLE, 0));
@@ -93,7 +108,7 @@ describe('user repository', () => {
   });
 
   it('replaces a user when it is saved', () => {
-    const debitedCarol = User.restore({ ...repositories.users.findById(CAROL)!, credit: 6 });
+    const debitedCarol = User.restore({ ...findUser(CAROL), credit: 6 });
 
     repositories.users.save(debitedCarol);
 
