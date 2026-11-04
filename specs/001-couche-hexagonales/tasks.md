@@ -253,8 +253,8 @@ les anciens modules n'existent plus.
 - [X] T117 Documentation à jour : section structure du `README.md` (nouvelles couches, plus de `handlers.ts`, `db.ts`, `payment.ts`, `utils.ts`), cases 2c cochées dans `docs/plan-refactoring.md` avec les résultats des portes, point ouvert « Isolation des tests » confirmé, mention des chemins dans `docs/demarche-qualite.md` si elle cite les anciens fichiers
 - [X] T118 Relecture humaine du diff avant le commit (code et tests générés par une IA, constitution « Workflow » point 5) : répondre aux 5 questions de la diapo 142 (besoin fonctionnel, exigences non fonctionnelles, clean code, tests, architecture) sur l'ensemble de P4 et des corrections des portes, corriger les remarques puis relancer les portes si le code a changé
 - [X] T119 Commiter `refactor: reduce the HTTP layer to presentation` (P4), puis vérifier avec `git show --stat HEAD` que ce commit ne touche ni `tests/integration` ni `tests/e2e`
-- [ ] T120 Pousser la branche (`git push -u origin 2c-p4-presentation`) et ouvrir une demande de fusion vers `main` de `Clement-Garro/codeQualityExample` (le dépôt `origin`, pas `upstream`), titre `refactor: reduce the HTTP layer to presentation`, en indiquant dans la description « structure, aucun changement de comportement » et les résultats des portes (interface web de GitHub, ou `gh pr create --repo Clement-Garro/codeQualityExample --base main` si GitHub CLI est installé)
-- [ ] T121 Faire relire la demande de fusion, corriger les remarques, puis l'intégrer à `main` ; l'étape 2c est terminée quand cette demande est intégrée ; une fois intégrée, vérifier sur `main` l'ensemble de l'étape depuis le commit de départ noté dans `baseline.md` : `git diff <départ>..main -- tests/e2e` vide, et `git diff <départ>..main -- tests/integration` limité à la mise en place faite en P2 (T067)
+- [X] T120 Pousser la branche (`git push -u origin 2c-p4-presentation`) et ouvrir une demande de fusion vers `main` de `Clement-Garro/codeQualityExample` (le dépôt `origin`, pas `upstream`), titre `refactor: reduce the HTTP layer to presentation`, en indiquant dans la description « structure, aucun changement de comportement » et les résultats des portes (interface web de GitHub, ou `gh pr create --repo Clement-Garro/codeQualityExample --base main` si GitHub CLI est installé)
+- [X] T121 Faire relire la demande de fusion, corriger les remarques, puis l'intégrer à `main` ; l'étape 2c est terminée quand cette demande est intégrée ; une fois intégrée, vérifier sur `main` l'ensemble de l'étape depuis le commit de départ noté dans `baseline.md` : `git diff <départ>..main -- tests/e2e` vide, et `git diff <départ>..main -- tests/integration` limité à la mise en place faite en P2 (T067)
 
 ---
 
@@ -341,3 +341,11 @@ Chaque demande de fusion laisse `main` vert : on peut s'arrêter après n'import
 - L'alerte « vélo cassé » reste dans le cas « louer » (FR-016) ; son sort est un point ouvert du plan.
 - SC-007 (étape 3 limitée à la présentation) n'a pas de tâche ici : il se vérifie lors de la revue du plan de l'étape 3.
 - `/speckit-clarify` doit avoir été exécuté sur la spec avant `/speckit-implement` (constitution, principe I).
+
+---
+
+## Phase 8: Convergence
+
+- [X] T122 CRITICAL : remplacer les 4 assertions non nulles (`!`) de `tests/unit/infrastructure/inMemoryRepositories.test.ts` (lignes 66, 77, 96) et de `tests/unit/application/rentBike.test.ts` (ligne 184) par des helpers qui échouent clairement quand l'entité est introuvable (par exemple `findBike` / `findUser` de `tests/support/portDoubles.ts`), sans changer aucune attente, per Constitution V (contradicts)
+- [X] T123 CRITICAL : mettre à jour la section « Premières observations » de `README.md` : marquer comme réglés à l'étape 2c le `catch` vide de la capture, les « handlers monolithiques » et le tri exécuté dans la boucle, renommer `sleep()` en `busyWait()`, et garder ouverts l'attente active (2d), le port en dur et `console.log` (2e) et le crédit qui peut devenir négatif (point ouvert du plan), per Constitution « Contraintes techniques » : documentation à jour (contradicts)
+- [X] T124 Cocher T120 et T121 dans `specs/001-couche-hexagonales/tasks.md` : la demande de fusion de P4 est intégrée à `main` et la vérification de clôture depuis `af729c0` est passée (diff E2E vide, diff intégration limité à la mise en place de P2, 26 requêtes et 34 `expect` inchangés), per tasks T120–T121 (partial)

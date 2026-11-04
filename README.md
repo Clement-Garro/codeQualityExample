@@ -147,9 +147,9 @@ Le prix est arrondi au centime.
 
 ## Premières observations (pistes d'amélioration)
 
-Ce que montre une première lecture, à approfondir :
+Ce que montrait la première lecture du code, et où en est chaque point :
 
-- **Event loop bloquée** : `sleep()` est une boucle d'attente active. Chaque appel « externe » bloque tout le serveur, donc les requêtes concurrentes sont traitées une par une. C'est précisément ce que `pnpm load` met en évidence (`GET /stations` coûte environ 1,2 s à lui seul).
-- **Erreurs de capture avalées** : un `catch` vide ; le vélo est rendu même si le paiement échoue, et le crédit peut devenir négatif puisque rien ne compare le prix final au montant pré-autorisé.
-- **Handlers monolithiques** : `if/else` imbriqués sur une dizaine de niveaux, recherches linéaires répétées, aucune séparation entre accès aux données, règles métier et HTTP.
-- **Divers** : port 3000 codé en dur, tri exécuté dans la boucle de `handleStations`, logs `console.log` non structurés.
+- **Event loop bloquée** (ouvert, étape 2d) : `busyWait()` (`src/infrastructure/simulated/busyWait.ts`, ex-`sleep()`) est une boucle d'attente active. Chaque appel « externe » bloque tout le serveur, donc les requêtes concurrentes sont traitées une par une. C'est précisément ce que `pnpm load` met en évidence (`GET /stations` coûte environ 1,2 s à lui seul).
+- **Erreurs de capture avalées** : le `catch` vide a disparu à l'étape 2c (le paiement renvoie un résultat au lieu de lever une exception) ; le vélo est toujours rendu si la capture échoue, et cet échec n'est pas encore journalisé (étape 2e). Ouvert : le crédit peut devenir négatif, puisque rien ne compare le prix final au montant pré-autorisé (point ouvert de `docs/plan-refactoring.md`).
+- ~~**Handlers monolithiques**~~ (réglé à l'étape 2c) : les `if/else` imbriqués sur une dizaine de niveaux sont remplacés par des couches séparées (domaine, cas d'utilisation, infrastructure, présentation HTTP) ; plus aucune fonction ne dépasse 30 lignes.
+- **Divers** : port 3000 codé en dur et logs `console.log` non structurés (ouverts, étape 2e) ; le tri exécuté dans la boucle de la liste des stations est réglé à l'étape 2c (un seul tri par station).
