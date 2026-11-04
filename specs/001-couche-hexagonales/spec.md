@@ -234,7 +234,7 @@ les corrige pas) :
 
 - **FR-011**: Les opérations louer, rendre, consulter une location et lister les stations MUST être
   chacune un cas d'utilisation distinct, qui reçoit ses dépendances à sa construction.
-- **FR-012**: Un point d'assemblage unique MUST créer les adaptateurs et les cas d'utilisation ;
+- **FR-012**: Un point d'assemblage unique (*composition root*) MUST créer les adaptateurs et les cas d'utilisation ;
   aucun autre code ne crée de dépendance ni n'utilise d'état global partagé.
 - **FR-013**: Chaque assemblage MUST partir de ses propres données initiales : deux applications
   assemblées séparément ne partagent ni données ni compteur de locations.

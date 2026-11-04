@@ -113,11 +113,12 @@ premier point d'assemblage `createApplication()`.
 réponses de `GET /stations` sont identiques (tests d'intégration verts) ; `grep -rn "bikeIds" src tests`
 ne renvoie rien.
 
+- [ ] T039 [US2] Créer la branche `2c-p2-ports` depuis `main` à jour (`git switch main`, `git pull`, `git switch -c 2c-p2-ports`)
+
 ### Tests for User Story 2 ⚠️
 
 > Écrire ces tests d'abord ; vérifier qu'ils échouent avant l'implémentation.
 
-- [ ] T039 [US2] Créer la branche `2c-p2-ports` depuis `main` à jour (`git switch main`, `git pull`, `git switch -c 2c-p2-ports`)
 - [ ] T040 [P] [US2] Écrire `tests/unit/infrastructure/seedData.test.ts` : `createSeedData()` renvoie 4 stations, 10 vélos, 4 utilisateurs, aucune location ; une copie neuve à chaque appel ; identifiants uniques ; statuts connus ; aucune station au-delà de sa capacité (comptée par `stationId`) ; aucun vélo ne viole « `stationId` `null` si et seulement si `status = Rented` » (cas repris de `tests/unit/db.test.ts`)
 - [ ] T041 [P] [US2] Écrire `tests/unit/infrastructure/inMemoryRepositories.test.ts` : `findById`, `findAll` dans l'ordre des données, `save` remplace l'entité ; `BikeRepository.findDockedAt(stationId)` dans l'ordre des données, sans vélo loué ; `countDocked()` ; `RentalRepository.hasOpenRentalFor(userId)`, `findAll`, `nextId()` qui démarre à 1 et s'incrémente, indépendamment par instance (cas `rental ids` repris de `tests/unit/db.test.ts`)
 - [ ] T042 [P] [US2] Écrire `tests/unit/infrastructure/simulatedPaymentGateway.test.ts` : `preAuthorize` approuve un crédit égal au montant, refuse « insufficient funds » si crédit < montant **avant** « blacklisted », journalise `[INFO] preauth done "<ref>"`, transmet utilisateur et montant à l'appel simulé, ne modifie aucun crédit ; `capture` réussit pour un montant nul ou positif avec `[INFO] capture done "<ref>"`, renvoie `{ isCaptured: false }` pour un montant négatif, ne débite jamais (cas repris de `tests/unit/payment.test.ts`, sauf `refundPayment` supprimé, R4 ; noter ce retrait dans `test-inventory.md`)
@@ -169,11 +170,12 @@ d'assemblage, qui renvoient un résultat discriminé ; les gestionnaires ne font
 **Independent Test**: chaque cas d'utilisation est testé sans HTTP, avec les vrais repositories en
 mémoire et des doubles aux frontières ; tests d'intégration et E2E verts sans modification depuis P2.
 
+- [ ] T075 [US3] Créer la branche `2c-p3-use-cases` depuis `main` à jour (`git switch main`, `git pull`, `git switch -c 2c-p3-use-cases`)
+
 ### Tests for User Story 3 ⚠️
 
 > Écrire ces tests d'abord ; vérifier qu'ils échouent avant l'implémentation.
 
-- [ ] T075 [US3] Créer la branche `2c-p3-use-cases` depuis `main` à jour (`git switch main`, `git pull`, `git switch -c 2c-p3-use-cases`)
 - [ ] T076 [P] [US3] Créer `tests/support/portDoubles.ts` : doubles de `LocationService` (zone et météo fixées), `FraudScreening` (score fixé), `FleetNotifier` et `Logger` (qui enregistrent les appels), `Clock` (instant contrôlé, `advanceMinutes`) ; données nommées `ALICE`, `BOB`, `CAROL`, `DAVE`, `REPUBLIQUE`, `BASTILLE`, `MONTPARNASSE`, `NATION`
 - [ ] T077 [P] [US3] Écrire `tests/unit/application/rentBike.test.ts` : succès (Alice à République → vélo 4, `Republique`, 7,50, référence, location enregistrée, vélo loué hors station, `rentalCreated` notifié) ; chaque refus `UserNotFound`, `StationNotFound`, `NoBikeAvailable`, `AlreadyRenting`, `NotEnoughCredit`, `FraudSuspected`, `PaymentDeclined` dans cet ordre de vérification ; aucune donnée modifiée et aucun identifiant consommé sur refus ; `warn('broken bike at station', bikeId)` pour chaque vélo cassé après les vérifications utilisateur et station ; `warn('payment declined', { userId, amount, reason })` ; paiement non contacté en cas de fraude (cas repris de `describe('handleRentBike')` et `describe('handleRentBike when the payment pre-authorization is declined')` de `tests/unit/handlers.test.ts`)
 - [ ] T078 [P] [US3] Écrire `tests/unit/application/returnBike.test.ts` : succès (minutes, prix, nom de station, capture, débit, vélo `Available` à la station d'arrivée, `+ floor(minutes / 4)` km, location `Completed`) ; refus `RentalNotFound`, `AlreadyReturned`, `StationNotFound`, `StationFull` dans cet ordre, sans modification ; capture refusée → location clôturée, aucun débit, capture signalée échouée ; rééquilibrage demandé au-delà du seuil strict seulement ; utilisateur ou vélo introuvable → `InconsistentDataError` sans clôture (cas repris de `describe('handleReturnBike')` et `describe('inconsistent data')`)
@@ -209,11 +211,12 @@ les anciens modules n'existent plus.
 **Independent Test**: tests d'intégration et E2E verts sans modification depuis P2 ;
 `grep -rnE "businessRules|Repository|seedData" src/presentation` sans résultat ; anciens fichiers absents.
 
+- [ ] T095 [US4] Créer la branche `2c-p4-presentation` depuis `main` à jour (`git switch main`, `git pull`, `git switch -c 2c-p4-presentation`)
+
 ### Tests for User Story 4 ⚠️
 
 > Écrire ces tests d'abord ; vérifier qu'ils échouent avant l'implémentation.
 
-- [ ] T095 [US4] Créer la branche `2c-p4-presentation` depuis `main` à jour (`git switch main`, `git pull`, `git switch -c 2c-p4-presentation`)
 - [ ] T096 [P] [US4] Écrire `tests/unit/presentation/validation.test.ts` : `hasRequiredFields` refuse un champ absent, `null`, vide ou `NaN` et un corps absent, accepte tout objet si aucun champ n'est requis ; conversions : `"1"` → 1, `"abc"` → `NaN`, `bikeId` absent ou `null` → `null` (cas repris de `hasRequiredFields` dans `tests/unit/utils.test.ts` et de `describe('input validation')` de `tests/unit/handlers.test.ts`)
 - [ ] T097 [P] [US4] Écrire `tests/unit/presentation/refusals.test.ts` : chaque refus donne exactement le code et le `msg` du [contrat](contracts/current-api.openapi.yaml) : `UserNotFound` 404 `no user`, `StationNotFound` 404 `no station`, `NoBikeAvailable` 409 `no bike available`, `AlreadyRenting` 409 `already renting`, `NotEnoughCredit` 402 `not enough credit`, `FraudSuspected` 403 `refused`, `PaymentDeclined` 402 `payment declined`, `RentalNotFound` 404 `no rental`, `AlreadyReturned` 409 `already returned`, `StationFull` 409 `station full`
 - [ ] T098 [P] [US4] Écrire `tests/unit/presentation/responses.test.ts` : mise en forme exacte (clés et ordre) de `{ msg, rentalId, bikeId, station, preAuth, ref }`, `{ msg, rentalId, minutes, price, station, captured }`, `{ id, name, zone, weather, free, electric, slots, bikes: [{ id, el, km, broken? }] }` (`broken: true` seulement pour un vélo cassé) et `{ msg, id, bikeId, minutes, price, estimate, open }` (`estimate` égal à `price`)
@@ -244,13 +247,14 @@ les anciens modules n'existent plus.
 - [ ] T111 Suite de tests complète : `pnpm test` (unitaires, intégration, E2E) entièrement verte ; nombre de tests d'intégration (13) et E2E (2) identique à `baseline.md`
 - [ ] T112 Couverture sans baisse : `pnpm test:coverage`, lignes et branches ≥ les valeurs de `baseline.md` (100 %)
 - [ ] T113 Mutation : `pnpm test:mutation` ≥ 90 % ; noter le score et les mutants survivants (justifier chaque survivant équivalent)
-- [ ] T114 Quality gate de l'analyse statique : SonarQube n'est pas encore installé (étape 2g, dérogation « Outillage ») ; le noter dans `specs/001-couche-hexagonales/baseline.md` et dans la description du commit, ainsi que l'absence d'intégration continue (portes exécutées en local seulement, étape 2h, dérogation de Complexity Tracking)
-- [ ] T115 Performance : `pnpm load` 3 fois, médianes de la latence moyenne et maximale ≤ référence de `baseline.md` + 10 %
-- [ ] T116 Documentation à jour : section structure du `README.md` (nouvelles couches, plus de `handlers.ts`, `db.ts`, `payment.ts`, `utils.ts`), cases 2c cochées dans `docs/plan-refactoring.md` avec les résultats des portes, point ouvert « Isolation des tests » confirmé, mention des chemins dans `docs/demarche-qualite.md` si elle cite les anciens fichiers
-- [ ] T117 Relecture humaine du diff avant le commit (code et tests générés par une IA, constitution « Workflow » point 5) : répondre aux 5 questions de la diapo 142 (besoin fonctionnel, exigences non fonctionnelles, clean code, tests, architecture) sur l'ensemble de P4 et des corrections des portes, corriger les remarques puis relancer les portes si le code a changé
-- [ ] T118 Commiter `refactor: reduce the HTTP layer to presentation` (P4), puis vérifier que les 4 commits `refactor:` de la branche ne contiennent aucun changement de comportement (`git log --stat`)
-- [ ] T119 Pousser la branche (`git push -u origin 2c-p4-presentation`) et ouvrir une demande de fusion vers `main` de `Clement-Garro/codeQualityExample` (le dépôt `origin`, pas `upstream`), titre `refactor: reduce the HTTP layer to presentation`, en indiquant dans la description « structure, aucun changement de comportement » et les résultats des portes (interface web de GitHub, ou `gh pr create --repo Clement-Garro/codeQualityExample --base main` si GitHub CLI est installé)
-- [ ] T120 Faire relire la demande de fusion, corriger les remarques, puis l'intégrer à `main` ; l'étape 2c est terminée quand cette demande est intégrée
+- [ ] T114 Audit des dépendances (constitution, principe VIII) : `pnpm audit --prod` sans vulnérabilité haute ni critique ; noter le résultat dans la description de la demande de fusion P4 ; confirmer qu'aucune dépendance n'est ajoutée par 2c (plan, « Dépendances ajoutées ») ; une alerte sur `eslint` (rangé à tort dans `dependencies`, corrigé en 2f) est notée comme connue, pas corrigée ici
+- [ ] T115 Quality gate de l'analyse statique : SonarQube n'est pas encore installé (étape 2g, dérogation « Outillage ») ; le noter dans la description de la demande de fusion P4 (T120), avec l'absence d'intégration continue (portes exécutées en local seulement, étape 2h, dérogation de Complexity Tracking) ; `baseline.md` n'est pas modifié dans le commit `refactor:`
+- [ ] T116 Performance : `pnpm load` 3 fois, médianes de la latence moyenne et maximale ≤ référence de `baseline.md` + 10 %
+- [ ] T117 Documentation à jour : section structure du `README.md` (nouvelles couches, plus de `handlers.ts`, `db.ts`, `payment.ts`, `utils.ts`), cases 2c cochées dans `docs/plan-refactoring.md` avec les résultats des portes, point ouvert « Isolation des tests » confirmé, mention des chemins dans `docs/demarche-qualite.md` si elle cite les anciens fichiers
+- [ ] T118 Relecture humaine du diff avant le commit (code et tests générés par une IA, constitution « Workflow » point 5) : répondre aux 5 questions de la diapo 142 (besoin fonctionnel, exigences non fonctionnelles, clean code, tests, architecture) sur l'ensemble de P4 et des corrections des portes, corriger les remarques puis relancer les portes si le code a changé
+- [ ] T119 Commiter `refactor: reduce the HTTP layer to presentation` (P4), puis vérifier avec `git show --stat HEAD` que ce commit ne touche ni `tests/integration` ni `tests/e2e`
+- [ ] T120 Pousser la branche (`git push -u origin 2c-p4-presentation`) et ouvrir une demande de fusion vers `main` de `Clement-Garro/codeQualityExample` (le dépôt `origin`, pas `upstream`), titre `refactor: reduce the HTTP layer to presentation`, en indiquant dans la description « structure, aucun changement de comportement » et les résultats des portes (interface web de GitHub, ou `gh pr create --repo Clement-Garro/codeQualityExample --base main` si GitHub CLI est installé)
+- [ ] T121 Faire relire la demande de fusion, corriger les remarques, puis l'intégrer à `main` ; l'étape 2c est terminée quand cette demande est intégrée ; une fois intégrée, vérifier sur `main` l'ensemble de l'étape depuis le commit de départ noté dans `baseline.md` : `git diff <départ>..main -- tests/e2e` vide, et `git diff <départ>..main -- tests/integration` limité à la mise en place faite en P2 (T067)
 
 ---
 
@@ -264,7 +268,7 @@ les anciens modules n'existent plus.
   (US2 utilise les entités, US3 les ports, US4 les cas d'utilisation) et se termine par un commit vert
   proposé dans sa propre demande de fusion ; la story suivante ne commence qu'après l'intégration de
   cette demande à `main` (spec, FR-004).
-- **Portes qualité (Phase 7)** : après US4 ; T118 contient le commit P4.
+- **Portes qualité (Phase 7)** : après US4 ; T119 contient le commit P4.
 
 ### Within Each User Story
 
@@ -306,8 +310,9 @@ Task: "Créer src/domain/rental.ts"
 
 ### MVP First (User Story 1 Only)
 
-1. Phase 1 : mesures de référence et inventaire des tests.
-2. Phase 3 : US1 → domaine isolé, commit P1.
+1. Phase 1 : demande de fusion documentaire intégrée à `main` (T001), branche `2c-p1-domain` (T002),
+   mesures de référence et inventaire des tests commités (T003 à T005).
+2. Phase 3 : US1 → domaine isolé, commit P1, demande de fusion intégrée (T037, T038).
 3. **STOP and VALIDATE** : `pnpm jest tests/unit/domain` seul, tests d'intégration et E2E inchangés,
    toutes les portes vertes. Le projet est déjà meilleur (règles testables seules) même si la suite
    attend.
