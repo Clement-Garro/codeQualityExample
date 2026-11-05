@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -36,6 +36,7 @@
   doit rester identique.
 - `pnpm load` est cité dans SC-001 parce que c'est l'outil de mesure de référence du projet
   (`specs/001-couche-hexagonales/baseline.md`), pas un choix d'implémentation.
-- Reste ouvert : FR-011 (réponse quand un service externe ne répond pas à temps), en attente de la réponse
-  de l'utilisateur.
+- FR-011 tranché le 2026-11-05 (option A) : refus du contrat actuel pour chaque service. Effet visible
+  à reporter dans le contrat de référence au moment du plan : zone et météo vides ('') quand la
+  géolocalisation dépasse sa durée maximale.
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`

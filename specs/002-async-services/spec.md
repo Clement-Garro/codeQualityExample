@@ -28,6 +28,15 @@ requêtes des autres) et les mainteneurs (qui doivent pouvoir tester le temps sa
 contrat d'API actuel est conservé (dérogation transitoire au principe IX) : seule la durée des
 réponses change quand plusieurs requêtes sont en cours.
 
+## Clarifications
+
+### Session 2026-11-05
+
+- Q: Quelle réponse le client reçoit-il quand un service externe ne répond pas dans sa durée maximale ?
+  → A: Les refus du contrat actuel, sans nouveau code HTTP : paiement → `402 payment declined`,
+  anti-fraude → `403 refused` (refus par prudence), géolocalisation → zone et météo inconnues,
+  capture → `captured: false`, notifications → ignorées et journalisées.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Les requêtes ne s'attendent plus les unes les autres (Priority: P1)
@@ -103,8 +112,8 @@ la requête se termine dans le délai maximal avec la réponse définie.
 **Acceptance Scenarios**:
 
 1. **Given** un service externe qui ne répond pas, **When** une requête l'appelle, **Then** la requête se
-   termine au plus tard à l'expiration du délai maximal de ce service, avec la réponse définie en
-   FR-011, et aucune donnée n'est modifiée à moitié.
+   termine au plus tard à l'expiration du délai maximal de ce service, avec le refus du contrat actuel
+   défini en FR-011, et aucune donnée n'est modifiée à moitié.
 2. **Given** des services externes qui répondent normalement, **When** une requête les appelle, **Then**
    la réponse est identique à celle d'aujourd'hui.
 
@@ -191,12 +200,17 @@ réelle et donne le même résultat à chaque exécution.
 
 **US3 – Durée maximale des appels externes**
 
-- **FR-011**: Chaque appel à un service externe MUST avoir une durée maximale et un comportement défini
-  quand elle est dépassée : [NEEDS CLARIFICATION: quelle réponse le client reçoit-il quand un service
-  ne répond pas à temps ? Réutiliser les refus du contrat actuel (paiement → `402 payment declined`,
-  anti-fraude → refus, géolocalisation → zone et météo inconnues, capture → `captured: false`,
-  notifications → ignorées et journalisées), introduire une nouvelle erreur « service indisponible »,
-  ou reporter les délais maximaux à l'étape 3 ?]
+- **FR-011**: Chaque appel à un service externe MUST avoir une durée maximale ; quand elle est dépassée,
+  le système MUST répondre avec les refus du contrat actuel, sans nouveau code ni message HTTP :
+  - pré-autorisation du paiement : location refusée avec `402 payment declined` (vélo libéré, aucune
+    location créée) ;
+  - anti-fraude : location refusée par prudence avec `403 refused`, sans contacter le paiement ;
+  - géolocalisation : la station est listée avec une zone et une météo inconnues (`''`), les autres
+    informations de la station restant exactes ;
+  - capture du paiement : la location est clôturée comme aujourd'hui en cas d'échec de capture, avec
+    `captured: false` et aucun débit ;
+  - notifications de flotte (location créée, rééquilibrage) : ignorées pour la réponse, qui reste un
+    succès ; seule la journalisation de FR-012 le signale.
 - **FR-012**: Un appel abandonné pour délai dépassé MUST NOT laisser de modification partielle des données
   et MUST être journalisé (niveau, service concerné, durée maximale).
 
@@ -284,7 +298,10 @@ réelle et donne le même résultat à chaque exécution.
 - **Entrées** : inchangées.
 - **Sorties** : inchangées.
 - **Erreurs** : inchangées pour toutes les situations d'aujourd'hui ; les conflits concurrents reçoivent
-  les refus existants (FR-010). Le cas « service externe trop lent » dépend de FR-011.
+  les refus existants (FR-010) ; un service externe trop lent donne aussi un refus existant (FR-011).
+  Seule nouveauté visible : une zone et une météo vides (`''`) pour une station dont la géolocalisation
+  dépasse sa durée maximale, valeurs que le contrat décrit aujourd'hui comme `north`/`south` et
+  `clear`/`rain` ; le contrat de référence est complété en conséquence au moment du plan.
 - **Compatibilité** : changement compatible pour les clients ; seule la durée des réponses change sous
   charge.
 
