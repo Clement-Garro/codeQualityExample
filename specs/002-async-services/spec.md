@@ -36,6 +36,16 @@ réponses change quand plusieurs requêtes sont en cours.
   → A: Les refus du contrat actuel, sans nouveau code HTTP : paiement → `402 payment declined`,
   anti-fraude → `403 refused` (refus par prudence), géolocalisation → zone et météo inconnues,
   capture → `captured: false`, notifications → ignorées et journalisées.
+- Q: Comment livrer l'étape 2d : une demande de fusion par commit, ou une seule pour toute l'étape ?
+  → A: Une demande de fusion par commit (US4, puis US1+US2, puis US3), chacune revue et intégrée à
+  `main` avant la suivante, comme à l'étape 2c.
+- Q: La liste des stations doit-elle géolocaliser ses stations en même temps, ou seulement le pouvoir ?
+  → A: Obligatoire : toutes les stations sont géolocalisées en même temps, une consultation seule dure
+  moins de 0,5 s, et un test le vérifie.
+- Q: Où régler les durées maximales des services externes : constantes nommées dans le code, ou
+  variables d'environnement dès 2d ?
+  → A: Constantes nommées, injectées par le point d'assemblage et réglables dans les tests ; leur
+  lecture depuis l'environnement est faite à l'étape 2e (dérogation écrite dans le plan).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -179,8 +189,9 @@ réelle et donne le même résultat à chaque exécution.
 
 - **FR-003**: Pendant qu'une requête attend un service externe, le système MUST continuer à traiter les
   autres requêtes.
-- **FR-004**: La liste des stations MUST pouvoir géolocaliser les stations en même temps tout en
-  renvoyant les stations dans l'ordre des données.
+- **FR-004**: La liste des stations MUST géolocaliser toutes les stations en même temps (la durée d'une
+  consultation est celle d'une seule géolocalisation, pas leur somme) tout en renvoyant les stations
+  dans l'ordre des données.
 
 **US2 – Cohérence sous concurrence**
 
@@ -211,6 +222,9 @@ réelle et donne le même résultat à chaque exécution.
     `captured: false` et aucun débit ;
   - notifications de flotte (location créée, rééquilibrage) : ignorées pour la réponse, qui reste un
     succès ; seule la journalisation de FR-012 le signale.
+- **FR-018**: Les durées maximales MUST être des constantes nommées (une par service), fournies aux
+  adaptateurs par le point d'assemblage et réglables par les tests ; leur lecture depuis
+  l'environnement relève de l'étape 2e.
 - **FR-012**: Un appel abandonné pour délai dépassé MUST NOT laisser de modification partielle des données
   et MUST être journalisé (niveau, service concerné, durée maximale).
 
@@ -228,9 +242,10 @@ réelle et donne le même résultat à chaque exécution.
   temps réel).
 - **FR-016**: Chaque garantie de l'US2 MUST être couverte par un test qui fait réellement se chevaucher les
   requêtes en conflit.
-- **FR-017**: Le passage à l'attente non bloquante et les garanties de l'US2 (structure, comportement
-  conservé) MUST être livrés dans un commit `refactor:` distinct du commit qui ajoute les durées
-  maximales de l'US3 (nouveau comportement).
+- **FR-017**: L'étape MUST être livrée en trois commits, chacun dans sa propre demande de fusion vers
+  `main`, revue et intégrée avant de commencer la suivante : d'abord le temps maîtrisé de l'US4
+  (`refactor:`), puis l'attente non bloquante avec les garanties de l'US2 (`refactor:`, comportement
+  conservé), enfin les durées maximales de l'US3 (nouveau comportement, dans un commit de comportement).
 
 ### Key Entities *(include if feature involves data)*
 
@@ -250,6 +265,8 @@ réelle et donne le même résultat à chaque exécution.
   3 exécutions de `pnpm load`, latence maximale), contre environ 24 s aujourd'hui.
 - **SC-002**: Une consultation des stations envoyée pendant le paiement d'une location reçoit sa réponse
   en moins de 1,5 s, quel que soit le nombre de locations en cours.
+- **SC-008**: Une consultation des stations envoyée seule reçoit sa réponse en moins de 0,5 s (une seule
+  durée de géolocalisation, au lieu d'environ 1,2 s aujourd'hui).
 - **SC-003**: Dans les tests de concurrence, 100 % des conflits (même vélo, même utilisateur, même
   location, dernière place d'une station) donnent exactement une réussite et des refus du contrat
   actuel ; 0 location en double, 0 double débit, 0 station au-delà de sa capacité.
@@ -274,8 +291,8 @@ réelle et donne le même résultat à chaque exécution.
 - Un conflit perdant est refusé immédiatement ; il n'attend pas la fin de la requête gagnante pour
   réessayer.
 - Délais maximaux par défaut, au-dessus des durées simulées pour ne rien changer en fonctionnement normal :
-  paiement 3 s par appel, géolocalisation 1 s, anti-fraude 1 s, notifications 1 s. Ils sont nommés et
-  configurables (principe III, pas de valeur en dur).
+  paiement 3 s par appel, géolocalisation 1 s, anti-fraude 1 s, notifications 1 s. Ce sont des constantes
+  nommées injectées par le point d'assemblage (FR-018, principe III, pas de valeur en dur).
 - Le test E2E garde le temps réel ; il devient simplement plus rapide.
 - Aucune nouvelle dépendance n'est nécessaire.
 
@@ -285,6 +302,7 @@ réelle et donne le même résultat à chaque exécution.
 |-----------|----------|----------|-------|
 | Performance | Les requêtes concurrentes ne s'attendent plus | Latence maximale de 20 `GET /stations` simultanés (`pnpm load`, médiane de 3 exécutions) | < 2 s (référence ≈ 24 s) |
 | Performance | Une requête n'attend pas le paiement d'une autre | Durée d'une consultation pendant une location en cours | < 1,5 s |
+| Performance | Les stations sont géolocalisées en même temps | Durée d'une consultation seule des stations | < 0,5 s (référence ≈ 1,2 s) |
 | Robustesse | Les entrées invalides restent refusées comme aujourd'hui | Tests de validation existants | 100 % verts |
 | Intégrité des données | Aucune location en double, aucun double débit, aucune station au-delà de sa capacité sous concurrence | Tests de concurrence (FR-016) | 0 incohérence |
 | Tolérance aux pannes | Un service externe qui ne répond pas ne bloque pas la requête | Durée d'une requête avec un service muet | ≤ délai maximal du service (FR-011) |
