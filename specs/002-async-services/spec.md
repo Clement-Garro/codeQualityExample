@@ -290,7 +290,7 @@ réelle et donne le même résultat à chaque exécution.
   requêtes concurrentes de ce processus, pas sur plusieurs instances.
 - Un conflit perdant est refusé immédiatement ; il n'attend pas la fin de la requête gagnante pour
   réessayer.
-- Délais maximaux par défaut, au-dessus des durées simulées pour ne rien changer en fonctionnement normal :
+- Durées maximales par défaut, au-dessus des durées simulées pour ne rien changer en fonctionnement normal :
   paiement 3 s par appel, géolocalisation 1 s, anti-fraude 1 s, notifications 1 s. Ce sont des constantes
   nommées injectées par le point d'assemblage (FR-018, principe III, pas de valeur en dur).
 - Le test E2E garde le temps réel ; il devient simplement plus rapide.

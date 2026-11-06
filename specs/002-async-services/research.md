@@ -154,8 +154,11 @@ Chacune a été vérifiée sur le code de `main` au commit `1d6b753`.
     réponse (une promesse que le test résout lui-même). On lance la requête A, elle reste en attente du
     paiement ; on lance la requête B, on vérifie qu'elle est refusée ; puis on libère A et on vérifie
     l'état final.
-  - **Au niveau HTTP** : deux requêtes supertest lancées ensemble (`Promise.all`) sur la même
-    application, avec l'horloge de test en saut automatique.
+  - **Au niveau HTTP** : deux requêtes supertest sur la même application, avec l'horloge de test
+    en mode manuel : la première est retenue dans une attente (`whenPending`), la seconde reçoit sa
+    réponse pendant ce temps, puis `resumeAutoAdvance()` termine la première. Lancer les requêtes
+    ensemble en saut automatique ne garantirait pas qu'elles se chevauchent. Un test E2E en temps réel
+    (`tests/e2e/concurrency.test.ts`) vérifie le même conflit sur un vrai serveur.
 - **Rationale** : un test de concurrence qui passerait aussi avec des requêtes traitées l'une après
   l'autre ne prouve rien (exigences de test de la spec). Retenir la réponse du paiement garantit que les
   deux requêtes se chevauchent vraiment.

@@ -46,7 +46,7 @@ Chaque commit a sa propre demande de fusion, intégrée à `main` avant la suiva
   - durée de `pnpm jest tests/unit tests/integration` sur 3 exécutions (SC-005) ;
   - médianes des latences moyenne et maximale de `pnpm load` sur 3 exécutions (SC-001) ;
   - médiane, sur 3 mesures, de la durée d'un `GET /stations` seul avec `pnpm start` et `curl -s -o /dev/null -w '%{time_total}' localhost:3000/stations` (SC-008)
-- [ ] T004 Enregistrer la liste des noms de tests dans `specs/002-async-services/tests-before.json` (à partir de `pnpm jest --json`, sans les résultats de `.stryker-tmp`, en ne gardant que les noms des tests, pas leurs durées) pour vérifier à chaque commit qu'aucun test ne disparaît sans remplaçant, puis commiter ce fichier et `specs/002-async-services/baseline.md` sur `2d-c1-test-clock` (`docs: record baseline for step 2d`)
+- [ ] T004 Enregistrer la liste des noms de tests dans `specs/002-async-services/tests-before.json` (à partir de `pnpm jest --json`, sans les résultats de `.stryker-tmp`, en ne gardant que les noms des tests, pas leurs durées) pour vérifier à chaque commit qu'aucun test ne disparaît sans remplaçant, puis commiter ce fichier et `specs/002-async-services/baseline.md` sur `2d-c1-test-clock` (`docs: record baseline for step 2d`) ; cocher « Mesurer avec `pnpm load` (référence avant) » dans `docs/plan-refactoring.md`
 
 ---
 
@@ -55,8 +55,8 @@ Chaque commit a sa propre demande de fusion, intégrée à `main` avant la suiva
 **Purpose** : aucune tâche en plus. Le temps maîtrisé (US4) est lui-même le socle des stories suivantes,
 qui sont strictement séquentielles (R8, R11).
 
-**Checkpoint** : la documentation de 2d est intégrée à `main`, `2d-c1-test-clock` existe et
-`baseline.md` est commité.
+**Checkpoint** : la documentation de 2d est intégrée à `main`, `2d-c1-test-clock` existe, et
+`baseline.md` et `tests-before.json` sont commités.
 
 ---
 
@@ -115,7 +115,7 @@ FR-014). Le comportement est inchangé : l'attente reste active à ce commit.
   - `pnpm test:mutation` (≥ 90 %) ;
   - durée de `pnpm jest tests/unit tests/integration` ≤ `baseline.md`, mêmes résultats sur 3 exécutions ;
   - seuils du principe III sur les fichiers modifiés
-- [ ] T020 [US4] Mettre à jour la documentation touchée par le commit 1 : dans `README.md` (section Tests, « Points à connaître ») et `docs/demarche-qualite.md` (« Choix techniques »), remplacer « Horloge rapide (`tests/support/fastClock.ts`) » par l'horloge de test injectée (`tests/support/testClock.ts`), passée à `createApplication({ clock })`, sans remplacer `Date.now`
+- [ ] T020 [US4] Mettre à jour la documentation touchée par le commit 1 : dans `README.md` (section Tests, « Points à connaître ») et `docs/demarche-qualite.md` (« Choix techniques »), remplacer « Horloge rapide (`tests/support/fastClock.ts`) » par l'horloge de test injectée (`tests/support/testClock.ts`), passée à `createApplication({ clock })`, sans remplacer `Date.now` ; dans `docs/plan-refactoring.md`, cocher « Injecter une horloge (`Clock`) et supprimer l'horloge rapide des tests »
 - [ ] T021 [US4] Relecture humaine du diff avant le commit (code et tests générés par une IA, constitution « Workflow » point 5) : répondre aux 5 questions de la diapo 142, corriger les remarques, puis relancer les portes si le code a changé
 - [ ] T022 [US4] Commiter `refactor: inject the clock into simulated delays and tests` (« structure, aucun changement de comportement »), vérifier avec `git show --stat HEAD` que `tests/e2e` n'est pas touché, pousser (`git push -u origin 2d-c1-test-clock`) et ouvrir une demande de fusion vers `main` de `Clement-Garro/codeQualityExample`, avec les résultats des portes
 - [ ] T023 [US4] Faire relire la demande de fusion, corriger les remarques, puis l'intégrer à `main` ; ne pas commencer la phase 4 avant cette intégration
@@ -147,7 +147,9 @@ FR-014). Le comportement est inchangé : l'attente reste active à ce commit.
   - en mode par défaut (saut automatique), `await clock.wait(300)` se résout et `now()` a avancé d'au moins 300 ms ;
   - deux attentes concurrentes de 100 et 300 ms se résolvent dans l'ordre de leurs échéances ;
   - en mode manuel (`new TestClock({ autoAdvance: false })`), une attente de 300 ms n'est pas résolue après `advance(299)`, et l'est après `advance(1)` ;
-  - lire `now()` plusieurs fois de suite renvoie la même valeur
+  - remplacer l'assertion de T006 « avance de 1 ms à chaque lecture » par : lire `now()` plusieurs fois de suite renvoie la même valeur ;
+  - `whenPending(1)` ne se résout qu'une fois qu'une attente est en cours ;
+  - après `resumeAutoAdvance()`, les attentes en cours et les suivantes se résolvent sans `advance`
 - [ ] T026 [P] [US1] Compléter `tests/unit/infrastructure/systemClock.test.ts` : `await new SystemClock().wait(20)` se résout après au moins 20 ms réelles
 - [ ] T027 [P] [US1] Adapter les tests des adaptateurs simulés (`tests/unit/infrastructure/simulated*.test.ts`) : chaque méthode renvoie une promesse ; en mode manuel, la promesse n'est pas résolue avant la durée simulée (paiement 1 000 ms par opération, géolocalisation 300 ms, anti-fraude 200 ms, location créée 100 ms, rééquilibrage 150 ms) et l'est juste après ; mêmes résultats et mêmes lignes de journal ; `simulateHttpCall` asynchrone (200 ms)
 - [ ] T028 [P] [US1] Dans `tests/support/portDoubles.ts` :
@@ -177,24 +179,25 @@ FR-014). Le comportement est inchangé : l'attente reste active à ce commit.
   - même location vers deux stations → `AlreadyReturned`, vélo garé dans une seule station ;
   - deux locations différentes vers une station avec une seule place libre → la seconde reçoit `StationFull` ;
   - capture qui rejette → marque de retour et place promise libérées
-- [ ] T036 [P] [US2] Écrire `tests/integration/concurrency.test.ts` (application réelle, `TestClock` en saut automatique, `Promise.all` de requêtes supertest) :
-  - deux `POST /rent` du même vélo → un `200` et un `409 { msg: 'no bike available' }` ;
-  - deux `POST /return` de la même location → un `200` et un `409 { msg: 'already returned' }`, crédit débité une fois ;
-  - deux `POST /rent` du même utilisateur → un `200` et un `409 { msg: 'already renting' }`
-- [ ] T037 [P] [US1] Ajouter à `tests/integration/concurrency.test.ts` le test SC-002 : un `GET /stations` lancé pendant un `POST /rent` reçoit sa réponse avant celle de la location, ce qui montre qu'il n'attend pas le paiement
-- [ ] T038 [US1] Lancer `pnpm jest tests/unit tests/integration` et vérifier que les nouveaux tests (T025 à T037) échouent, et que les tests adaptés échouent à la compilation tant que les ports sont synchrones
+- [ ] T036 [P] [US2] Écrire `tests/integration/concurrency.test.ts` (application réelle, `TestClock` en mode manuel). Pour chaque conflit, lancer la requête A (`.then()` pour que supertest l'envoie), attendre `clock.whenPending(1)` (A attend un service externe), lancer B et attendre sa réponse, vérifier que A n'est pas encore terminée, puis `clock.resumeAutoAdvance()` et attendre A :
+  - même vélo : B reçoit `409 { msg: 'no bike available' }`, A reçoit `200` ;
+  - même location rendue deux fois : B reçoit `409 { msg: 'already returned' }`, A reçoit `200`, crédit débité une fois ;
+  - même utilisateur : B reçoit `409 { msg: 'already renting' }`, A reçoit `200`
+- [ ] T037 [P] [US1] Ajouter à `tests/integration/concurrency.test.ts` le test SC-002 (`TestClock` en mode manuel) : lancer un `POST /rent`, attendre `clock.whenPending(1)`, lancer un `GET /stations`, puis `clock.advance(300)`. La consultation reçoit sa réponse complète alors que la location attend encore son paiement. Ensuite, `clock.resumeAutoAdvance()` termine la location avec `200`.
+- [ ] T038 [P] [US2] Écrire `tests/e2e/concurrency.test.ts`, avec le même démarrage d'un vrai serveur que `tests/e2e/rental-journey.test.ts`, en temps réel et sans toucher à ce fichier (FR-015) : 2 `POST /rent` du même vélo envoyés en même temps par 2 utilisateurs donnent un `200` et un `409 { msg: 'no bike available' }`, et le `409` arrive **avant** le `200`. Avec l'attente active, le second n'est traité qu'après le premier : ce test échoue donc avant le commit 2.
+- [ ] T039 [US1] Lancer `pnpm jest tests/unit tests/integration` et vérifier que les nouveaux tests (T025 à T038) échouent, et que les tests adaptés échouent à la compilation tant que les ports sont synchrones
 
 ### Implementation for User Stories 1 et 2
 
-- [ ] T039 [US1] Ajouter `wait(durationMs): Promise<void>` au port `src/application/ports/clock.ts` ; l'implémenter dans `src/infrastructure/systemClock.ts` (minuteur avec `unref()`) et dans `tests/support/testClock.ts` (saut automatique par défaut, attentes résolues dans l'ordre des échéances au tour suivant de la boucle d'événements ; mode manuel `{ autoAdvance: false }` avec `advance(ms)`). À partir de ce commit, `TestClock.now()` n'avance plus à chaque lecture : le temps n'avance que par une attente (`wait`, en saut automatique) ou par `advance(ms)` et `advanceMinutes(n)`. L'avance de 1 ms par lecture ne servait qu'à l'attente active, qui est supprimée.
-- [ ] T040 [US1] Rendre asynchrones les ports `src/application/ports/paymentGateway.ts`, `locationService.ts`, `fraudScreening.ts` (`scoreOf(...): Promise<number>`) et `fleetNotifier.ts` (`Promise<void>`) ; les résultats renvoyés restent les mêmes
-- [ ] T041 [US1] Dans `src/infrastructure/simulated/`, remplacer `busyWait(clock, ms)` par `await clock.wait(ms)` dans `simulateHttpCall` (devenu asynchrone) et dans les 4 adaptateurs simulés, avec les mêmes durées et le même ordre des journaux ; supprimer `src/infrastructure/simulated/busyWait.ts`
-- [ ] T042 [US2] Créer `src/application/operationsInProgress.ts`, classe `OperationsInProgress`, qui garde :
+- [ ] T040 [US1] Ajouter `wait(durationMs): Promise<void>` au port `src/application/ports/clock.ts` ; l'implémenter dans `src/infrastructure/systemClock.ts` (minuteur avec `unref()`) et dans `tests/support/testClock.ts` (saut automatique par défaut, attentes résolues dans l'ordre des échéances au tour suivant de la boucle d'événements ; mode manuel `{ autoAdvance: false }` avec `advance(ms)`, `whenPending(n)` et `resumeAutoAdvance()`). À partir de ce commit, `TestClock.now()` n'avance plus à chaque lecture : le temps n'avance que par une attente (`wait`, en saut automatique) ou par `advance(ms)` et `advanceMinutes(n)`. L'avance de 1 ms par lecture ne servait qu'à l'attente active, qui est supprimée.
+- [ ] T041 [US1] Rendre asynchrones les ports `src/application/ports/paymentGateway.ts`, `locationService.ts`, `fraudScreening.ts` (`scoreOf(...): Promise<number>`) et `fleetNotifier.ts` (`Promise<void>`) ; les résultats renvoyés restent les mêmes
+- [ ] T042 [US1] Dans `src/infrastructure/simulated/`, remplacer `busyWait(clock, ms)` par `await clock.wait(ms)` dans `simulateHttpCall` (devenu asynchrone) et dans les 4 adaptateurs simulés, avec les mêmes durées et le même ordre des journaux ; supprimer `src/infrastructure/simulated/busyWait.ts`
+- [ ] T043 [US2] Créer `src/application/operationsInProgress.ts`, classe `OperationsInProgress`, qui garde :
   - `reservedBikeIds`, `rentingUserIds`, `returningRentalIds` ;
   - `promisedSlotsByStation`, un nombre par station.
 
   Elle offre `startRental(userId, bikeId)`, `finishRental(userId, bikeId)`, `startReturn(rentalId, stationId)`, `finishReturn(rentalId, stationId)`, `isBikeReserved`, `isRenting`, `isReturning` et `promisedSlotsAt`, toutes synchrones (data-model.md).
-- [ ] T043 [US2] Rendre `src/application/useCases/rentBike.ts` asynchrone :
+- [ ] T044 [US2] Rendre `src/application/useCases/rentBike.ts` asynchrone :
   - mêmes vérifications dans le même ordre, sans `await` ;
   - un vélo réservé ne compte pas comme disponible ;
   - `isRenting(user)` vaut `AlreadyRenting` ;
@@ -202,39 +205,39 @@ FR-014). Le comportement est inchangé : l'attente reste active à ce commit.
   - `finishRental` dans un `finally`, quelle que soit l'issue ;
   - `OperationsInProgress` ajouté aux dépendances ;
   - fonctions de 30 lignes au plus
-- [ ] T044 [US2] Rendre `src/application/useCases/returnBike.ts` asynchrone :
+- [ ] T045 [US2] Rendre `src/application/useCases/returnBike.ts` asynchrone :
   - `isReturning(rental)` vaut `AlreadyReturned` ;
   - station pleine si `vélos présents + promisedSlotsAt(station) >= capacité` ;
   - `startReturn` avant la capture et `finishReturn` dans un `finally` ;
   - débit, clôture et dépôt du vélo inchangés
-- [ ] T045 [P] [US1] Rendre `src/application/useCases/listStations.ts` asynchrone : `Promise.all` des géolocalisations sur `stations.findAll()`, résultat dans l'ordre des données (FR-004)
-- [ ] T046 [US1] Dans `src/presentation/http/createHttpApp.ts`, rendre les routes asynchrones : une enveloppe transmet toute promesse rejetée à `next(error)` (R6) ; `UseCases` utilise les nouvelles signatures (`GetRental` reste synchrone)
-- [ ] T047 [US2] Dans `src/compositionRoot.ts`, créer une `OperationsInProgress` par application et la passer à `RentBike` et `ReturnBike`
-- [ ] T048 [US1] Vérifier :
+- [ ] T046 [P] [US1] Rendre `src/application/useCases/listStations.ts` asynchrone : `Promise.all` des géolocalisations sur `stations.findAll()`, résultat dans l'ordre des données (FR-004)
+- [ ] T047 [US1] Dans `src/presentation/http/createHttpApp.ts`, rendre les routes asynchrones : une enveloppe transmet toute promesse rejetée à `next(error)` (R6) ; `UseCases` utilise les nouvelles signatures (`GetRental` reste synchrone)
+- [ ] T048 [US2] Dans `src/compositionRoot.ts`, créer une `OperationsInProgress` par application et la passer à `RentBike` et `ReturnBike`
+- [ ] T049 [US1] Vérifier :
   - `grep -rn busyWait src tests` ne renvoie rien ;
-  - `git diff main -- tests/e2e` est vide ;
+  - `git diff main -- tests/e2e/rental-journey.test.ts` est vide, et `tests/e2e/concurrency.test.ts` est le seul ajout dans `tests/e2e` ;
   - les 13 tests d'intégration d'origine gardent leurs requêtes et leurs `expect` ;
   - aucun test de `specs/002-async-services/tests-before.json` n'a disparu sans remplaçant
-- [ ] T049 [US1] Mesurer en temps réel :
+- [ ] T050 [US1] Mesurer en temps réel :
   - `pnpm load` 3 fois : médiane de la latence maximale < 2 s (SC-001) ;
   - `GET /stations` seul avec `curl` 3 fois : médiane < 0,5 s (SC-008) ;
   - un `GET /stations` lancé pendant 3 `POST /rent` simultanés de 3 utilisateurs différents : réponse < 1,5 s (SC-002).
 
   Noter les valeurs dans la description de la demande de fusion.
-- [ ] T050 [US1] Passer les portes du commit :
+- [ ] T051 [US1] Passer les portes du commit :
   - `pnpm build` ;
   - `pnpm test` ;
   - `pnpm test:coverage` (100 %) ;
   - `pnpm test:mutation` (≥ 90 %) ;
   - durée de `pnpm jest tests/unit tests/integration` ≤ `baseline.md`, mêmes résultats sur 3 exécutions (SC-005) ;
   - seuils du principe III
-- [ ] T051 [US1] Mettre à jour la documentation touchée par le commit 2 :
-  - `README.md` : dans « Premières observations », marquer « Event loop bloquée » comme réglée en 2d, avec la mesure de T049 ; dans « Services simulés », dire que les services attendent sans bloquer, via `clock.wait` ;
+- [ ] T052 [US1] Mettre à jour la documentation touchée par le commit 2 :
+  - `README.md` : dans « Premières observations », marquer « Event loop bloquée » comme réglée en 2d, avec la mesure de T050 ; dans « Services simulés », dire que les services attendent sans bloquer, via `clock.wait` ;
   - `docs/demarche-qualite.md` : barrer l'étape 5 (« Remplacer l'attente active… ») et noter le gain mesuré ;
-  - `docs/plan-refactoring.md` : cocher les cases de 2d faites (attente non bloquante, concurrence, horloge injectée, mesures)
-- [ ] T052 [US2] Relecture humaine du diff avant le commit (constitution « Workflow » point 5) : 5 questions de la diapo 142, en vérifiant en particulier qu'aucun `await` ne sépare une vérification de la réservation correspondante (R3) et que chaque réservation est libérée dans un `finally`
-- [ ] T053 [US2] Commiter `refactor: wait for external services without blocking` (« structure, aucun changement de comportement pour une requête seule ; requêtes concurrentes traitées comme l'une après l'autre »), pousser (`git push -u origin 2d-c2-async`) et ouvrir une demande de fusion vers `main` de `Clement-Garro/codeQualityExample`, avec les mesures de T049 et les résultats des portes
-- [ ] T054 [US2] Faire relire la demande de fusion, corriger les remarques, puis l'intégrer à `main` ; ne pas commencer la phase 5 avant cette intégration
+  - `docs/plan-refactoring.md` : cocher « Remplacer l'attente active par des promesses », « Empêcher deux requêtes simultanées de prendre le même vélo… » et « Mesurer à nouveau avec `pnpm load` et noter le gain »
+- [ ] T053 [US2] Relecture humaine du diff avant le commit (constitution « Workflow » point 5) : 5 questions de la diapo 142, en vérifiant en particulier qu'aucun `await` ne sépare une vérification de la réservation correspondante (R3) et que chaque réservation est libérée dans un `finally`
+- [ ] T054 [US2] Commiter `refactor: wait for external services without blocking` (« structure, aucun changement de comportement pour une requête seule ; requêtes concurrentes traitées comme l'une après l'autre »), pousser (`git push -u origin 2d-c2-async`) et ouvrir une demande de fusion vers `main` de `Clement-Garro/codeQualityExample`, avec les mesures de T050 et les résultats des portes
+- [ ] T055 [US2] Faire relire la demande de fusion, corriger les remarques, puis l'intégrer à `main` ; ne pas commencer la phase 5 avant cette intégration
 
 **Checkpoint** : plus aucune attente active ; conflits concurrents refusés comme l'une après l'autre ; commit 2 intégré à `main`.
 
@@ -249,40 +252,40 @@ livré dans un commit `feat:`.
 **Independent Test** : avec une doublure qui ne répond jamais, chaque requête se termine au plus tard à
 la durée maximale du service, avec la réponse Q1 et la ligne `[WARN] external service timeout ...`.
 
-- [ ] T055 [US3] Créer la branche `2d-c3-timeouts` depuis `main` à jour (`git switch main`, `git pull`, `git switch -c 2d-c3-timeouts`)
+- [ ] T056 [US3] Créer la branche `2d-c3-timeouts` depuis `main` à jour (`git switch main`, `git pull`, `git switch -c 2d-c3-timeouts`)
 
 ### Tests for User Story 3 ⚠️
 
 > Écrire ces tests d'abord ; vérifier qu'ils échouent avant l'implémentation.
 
-- [ ] T056 [P] [US3] Écrire `tests/unit/infrastructure/timeouts/withMaximumDuration.test.ts` (horloge de test en mode manuel, `RecordingLogger`) :
+- [ ] T057 [P] [US3] Écrire `tests/unit/infrastructure/timeouts/withMaximumDuration.test.ts` (horloge de test en mode manuel, `RecordingLogger`) :
   - un appel qui répond à temps renvoie son résultat, sans journal ;
   - un appel qui ne répond jamais renvoie la valeur de repli dès `advance(maximumDurationMs)`, mais pas avant ;
   - le dépassement journalise `warn('external service timeout', { service, maximumDurationMs })` ;
   - un appel qui rejette avant l'échéance transmet son erreur
-- [ ] T057 [P] [US3] Écrire `tests/unit/infrastructure/timeouts/decorators.test.ts`. Pour chaque décorateur, avec une doublure muette et une doublure normale : réponse normale transmise telle quelle, et valeur de repli exacte au-delà de la durée maximale :
+- [ ] T058 [P] [US3] Écrire `tests/unit/infrastructure/timeouts/decorators.test.ts`. Pour chaque décorateur, avec une doublure muette et une doublure normale : réponse normale transmise telle quelle, et valeur de repli exacte au-delà de la durée maximale :
   - `PaymentGatewayWithMaximumDuration` : `preAuthorize` → `{ isApproved: false, reason: 'payment gateway timeout' }`, `capture` → `{ isCaptured: false }` ;
   - `LocationServiceWithMaximumDuration` : `{ zone: '', weather: '' }` ;
   - `FraudScreeningWithMaximumDuration` : `{ isAvailable: false }` ;
   - `FleetNotifierWithMaximumDuration` : se résout sans valeur.
-- [ ] T058 [P] [US3] Adapter `tests/unit/infrastructure/simulatedFraudScreening.test.ts` et la doublure `FixedFraudScreening` de `tests/support/portDoubles.ts` au port `assess(user, amount): Promise<FraudAssessment>` (`{ isAvailable: true, score }`), avec les mêmes scores
-- [ ] T059 [P] [US3] Ajouter à `tests/unit/application/rentBike.test.ts` :
+- [ ] T059 [P] [US3] Adapter `tests/unit/infrastructure/simulatedFraudScreening.test.ts` et la doublure `FixedFraudScreening` de `tests/support/portDoubles.ts` au port `assess(user, amount): Promise<FraudAssessment>` (`{ isAvailable: true, score }`), avec les mêmes scores
+- [ ] T060 [P] [US3] Ajouter à `tests/unit/application/rentBike.test.ts` :
   - anti-fraude indisponible (`{ isAvailable: false }`) → `FraudSuspected`, paiement non contacté, vélo libéré ;
   - pré-autorisation `{ isApproved: false, reason: 'payment gateway timeout' }` → `PaymentDeclined`, journal `payment declined` avec cette raison, vélo de nouveau proposé
-- [ ] T060 [P] [US3] Ajouter à `tests/unit/application/listStations.test.ts` et à `tests/unit/presentation/responses.test.ts` : une station dont la géolocalisation renvoie `{ zone: '', weather: '' }` est listée avec `zone: ''` et `weather: ''`, les autres champs restant exacts
-- [ ] T061 [P] [US3] Ajouter à `tests/unit/compositionRoot.test.ts` le test SC-007 : `createApplication({ clock, maximumDurations })` enveloppe les services externes. Avec une horloge en mode manuel et des durées maximales très courtes passées en option, un `GET /stations` se termine à leur échéance avec `zone: ''` et `weather: ''`, et la ligne `[WARN] external service timeout` est journalisée.
-- [ ] T062 [US3] Lancer `pnpm jest tests/unit` et vérifier que les tests de T056 à T061 échouent (modules `timeouts` absents, port `assess` absent)
+- [ ] T061 [P] [US3] Ajouter à `tests/unit/application/listStations.test.ts` et à `tests/unit/presentation/responses.test.ts` : une station dont la géolocalisation renvoie `{ zone: '', weather: '' }` est listée avec `zone: ''` et `weather: ''`, les autres champs restant exacts
+- [ ] T062 [P] [US3] Ajouter à `tests/unit/compositionRoot.test.ts` le test SC-007 : `createApplication({ clock, maximumDurations })` enveloppe les services externes. Avec une horloge en mode manuel et des durées maximales très courtes passées en option, un `GET /stations` se termine à leur échéance avec `zone: ''` et `weather: ''`, et la ligne `[WARN] external service timeout` est journalisée. Deux tests de plus, avec des durées maximales passées en option : anti-fraude très courte → `POST /rent` reçoit `403 { msg: 'refused' }` ; anti-fraude normale et paiement très court → `402 { msg: 'payment declined' }`, et le vélo est de nouveau proposé.
+- [ ] T063 [US3] Lancer `pnpm jest tests/unit` et vérifier que les tests de T057 à T062 échouent (modules `timeouts` absents, port `assess` absent)
 
 ### Implementation for User Story 3
 
-- [ ] T063 [US3] Créer `src/infrastructure/timeouts/maximumDurations.ts` : `PAYMENT_MAXIMUM_DURATION_MS = 3000`, `GEOLOCATION_MAXIMUM_DURATION_MS = 1000`, `FRAUD_SCREENING_MAXIMUM_DURATION_MS = 1000`, `FLEET_NOTIFICATION_MAXIMUM_DURATION_MS = 1000`, regroupées dans l'objet `DEFAULT_MAXIMUM_DURATIONS` de type `MaximumDurations` (FR-018)
-- [ ] T064 [US3] Créer `src/infrastructure/timeouts/withMaximumDuration.ts` : course entre l'appel et `clock.wait(maximumDurationMs)`, valeur de repli et journal au dépassement (R7), paramètres groupés en un objet si plus de 3
-- [ ] T065 [US3] Changer le port `src/application/ports/fraudScreening.ts` en `assess(user, amount): Promise<FraudAssessment>`, avec `FraudAssessment = { isAvailable: true; score: number } | { isAvailable: false }` ; adapter `SimulatedFraudScreening` ; dans `src/application/useCases/rentBike.ts`, refuser avec `FraudSuspected` si l'évaluation est indisponible ou si `isFraudSuspected(score)`
-- [ ] T066 [US3] Élargir `LocationDescription` dans `src/application/ports/locationService.ts` à `zone: 'north' | 'south' | ''` et `weather: 'clear' | 'rain' | ''`, puis vérifier que `src/application/useCases/listStations.ts` et `src/presentation/http/responses.ts` transmettent ces valeurs telles quelles
-- [ ] T067 [US3] Créer les 4 décorateurs dans `src/infrastructure/timeouts/` : `PaymentGatewayWithMaximumDuration`, `LocationServiceWithMaximumDuration`, `FraudScreeningWithMaximumDuration` et `FleetNotifierWithMaximumDuration`, avec les valeurs de repli de T057
-- [ ] T068 [US3] Dans `src/compositionRoot.ts`, ajouter l'option `maximumDurations` (par défaut `DEFAULT_MAXIMUM_DURATIONS`) et envelopper chaque adaptateur simulé dans son décorateur, avec le même `Logger` et la même `Clock`
-- [ ] T069 [US3] Citer `specs/002-async-services/contracts/current-api.openapi.yaml` (version 1.1.0) comme contrat de référence dans la section API du `README.md`, en signalant que zone et météo peuvent être vides ; aucune copie de fichier
-- [ ] T070 [US3] Vérifier : `git diff main -- tests/e2e` est vide, les 13 tests d'intégration d'origine sont inchangés, et aucun test de `specs/002-async-services/tests-before.json` n'a disparu sans remplaçant
+- [ ] T064 [US3] Créer `src/infrastructure/timeouts/maximumDurations.ts` : `PAYMENT_MAXIMUM_DURATION_MS = 3000`, `GEOLOCATION_MAXIMUM_DURATION_MS = 1000`, `FRAUD_SCREENING_MAXIMUM_DURATION_MS = 1000`, `FLEET_NOTIFICATION_MAXIMUM_DURATION_MS = 1000`, regroupées dans l'objet `DEFAULT_MAXIMUM_DURATIONS` de type `MaximumDurations` (FR-018)
+- [ ] T065 [US3] Créer `src/infrastructure/timeouts/withMaximumDuration.ts` : course entre l'appel et `clock.wait(maximumDurationMs)`, valeur de repli et journal au dépassement (R7), paramètres groupés en un objet si plus de 3
+- [ ] T066 [US3] Changer le port `src/application/ports/fraudScreening.ts` en `assess(user, amount): Promise<FraudAssessment>`, avec `FraudAssessment = { isAvailable: true; score: number } | { isAvailable: false }` ; adapter `SimulatedFraudScreening` ; dans `src/application/useCases/rentBike.ts`, refuser avec `FraudSuspected` si l'évaluation est indisponible ou si `isFraudSuspected(score)`
+- [ ] T067 [US3] Élargir `LocationDescription` dans `src/application/ports/locationService.ts` à `zone: 'north' | 'south' | ''` et `weather: 'clear' | 'rain' | ''`, puis vérifier que `src/application/useCases/listStations.ts` et `src/presentation/http/responses.ts` transmettent ces valeurs telles quelles
+- [ ] T068 [US3] Créer les 4 décorateurs dans `src/infrastructure/timeouts/` : `PaymentGatewayWithMaximumDuration`, `LocationServiceWithMaximumDuration`, `FraudScreeningWithMaximumDuration` et `FleetNotifierWithMaximumDuration`, avec les valeurs de repli de T058
+- [ ] T069 [US3] Dans `src/compositionRoot.ts`, ajouter l'option `maximumDurations` (par défaut `DEFAULT_MAXIMUM_DURATIONS`) et envelopper chaque adaptateur simulé dans son décorateur, avec le même `Logger` et la même `Clock`
+- [ ] T070 [US3] Citer `specs/002-async-services/contracts/current-api.openapi.yaml` (version 1.1.0) comme contrat de référence dans la section API du `README.md`, en signalant que zone et météo peuvent être vides ; aucune copie de fichier
+- [ ] T071 [US3] Vérifier : `git diff main -- tests/e2e` est vide, les 13 tests d'intégration d'origine sont inchangés, et aucun test de `specs/002-async-services/tests-before.json` n'a disparu sans remplaçant
 
 **Checkpoint** : chaque appel externe a une durée maximale ; prêt pour les portes qualité finales.
 
@@ -292,30 +295,30 @@ la durée maximale du service, avec la réponse Q1 et la ligne `[WARN] external 
 
 **Purpose** : une tâche par porte de la constitution, sur l'état final, avant le commit 3.
 
-- [ ] T071 Build : `pnpm build` compile sans erreur
-- [ ] T072 Linter : `pnpm lint` n'existe pas encore (étape 2f, dérogation « Outillage » de Complexity Tracking). Vérifier à la main, sur `src/` et `tests/unit/`, les seuils du principe III :
+- [ ] T072 Build : `pnpm build` compile sans erreur
+- [ ] T073 Linter : `pnpm lint` n'existe pas encore (étape 2f, dérogation « Outillage » de Complexity Tracking). Vérifier à la main, sur `src/` et `tests/unit/`, les seuils du principe III :
   - fonctions ≤ 30 lignes, complexité ≤ 10, ≤ 3 paramètres ;
   - fichiers ≤ 1000 lignes ;
   - lignes ≤ 120 caractères (`grep -rnE '.{121,}' src tests/unit tests/support` sans résultat) ;
   - aucun `any`, aucun cast non justifié, aucune assertion non nulle `!`
-- [ ] T073 Vérification des types : `pnpm exec tsc --noEmit` sans erreur
-- [ ] T074 Suite de tests complète : `pnpm test` (unitaires, intégration, E2E) entièrement verte, avec 13 tests d'intégration d'origine et 2 E2E inchangés
-- [ ] T075 Couverture sans baisse : `pnpm test:coverage`, lignes et branches à 100 %
-- [ ] T076 Mutation : `pnpm test:mutation` ≥ 90 % ; noter le score et justifier chaque mutant survivant équivalent
-- [ ] T077 Quality gate de l'analyse statique : SonarQube n'est pas encore installé (étape 2g, dérogation « Outillage »). Le noter dans la description de la demande de fusion, avec l'absence d'intégration continue (étape 2h).
-- [ ] T078 Audit des dépendances (constitution, principe VIII) : `pnpm audit --prod` sans vulnérabilité haute ni critique ; aucune dépendance ajoutée (plan, « Dépendances ajoutées ») ; l'alerte connue sur `minimatch`, par `eslint`, est notée
-- [ ] T079 Performance et déterminisme :
+- [ ] T074 Vérification des types : `pnpm exec tsc --noEmit` sans erreur
+- [ ] T075 Suite de tests complète : `pnpm test` (unitaires, intégration, E2E) entièrement verte, avec 13 tests d'intégration et 2 E2E d'origine inchangés, plus le test E2E de concurrence
+- [ ] T076 Couverture sans baisse : `pnpm test:coverage`, lignes et branches à 100 %
+- [ ] T077 Mutation : `pnpm test:mutation` ≥ 90 % ; noter le score et justifier chaque mutant survivant équivalent
+- [ ] T078 Quality gate de l'analyse statique : SonarQube n'est pas encore installé (étape 2g, dérogation « Outillage »). Le noter dans la description de la demande de fusion, avec l'absence d'intégration continue (étape 2h).
+- [ ] T079 Audit des dépendances (constitution, principe VIII) : `pnpm audit --prod` sans vulnérabilité haute ni critique ; aucune dépendance ajoutée (plan, « Dépendances ajoutées ») ; l'alerte connue sur `minimatch`, par `eslint`, est notée
+- [ ] T080 Performance et déterminisme :
   - `pnpm load` 3 fois : médiane de la latence maximale < 2 s (SC-001) ;
   - `GET /stations` seul : médiane < 0,5 s (SC-008) ;
   - `pnpm jest tests/unit tests/integration` 3 fois : durée ≤ `baseline.md` et mêmes résultats (SC-005)
-- [ ] T080 Documentation à jour pour le commit 3 :
-  - `README.md` : durées maximales et réponses de la clarification Q1 dans « Services simulés » ; contrat 1.1.0 cité dans la section API (T069) ;
-  - `docs/plan-refactoring.md` : case « délai maximal » cochée et résultats finaux de 2d ;
+- [ ] T081 Documentation à jour pour le commit 3 :
+  - `README.md` : durées maximales et réponses de la clarification Q1 dans « Services simulés » ; contrat 1.1.0 cité dans la section API (T070) ;
+  - `docs/plan-refactoring.md` : case « Donner un délai maximal à chaque appel de service simulé… » cochée et résultats finaux de 2d ;
   - `specs/002-async-services/plan.md` : dérogations X et VI retirées de Complexity Tracking
-- [ ] T081 Relecture humaine du diff avant le commit (constitution « Workflow » point 5) : 5 questions de la diapo 142 sur l'ensemble du commit 3, corriger les remarques, puis relancer les portes si le code a changé
-- [ ] T082 Commiter `feat: give every external call a maximum duration` (nouveau comportement : refus du contrat actuel quand un service externe dépasse sa durée maximale), pousser (`git push -u origin 2d-c3-timeouts`) et ouvrir une demande de fusion vers `main` de `Clement-Garro/codeQualityExample`, avec les résultats des portes
-- [ ] T083 Faire relire la demande de fusion, corriger les remarques, puis l'intégrer à `main`. L'étape 2d est terminée quand elle est intégrée. Vérifier alors sur `main`, depuis le commit de départ noté dans `baseline.md` :
-  - `git diff <départ>..main -- tests/e2e` est vide ;
+- [ ] T082 Relecture humaine du diff avant le commit (constitution « Workflow » point 5) : 5 questions de la diapo 142 sur l'ensemble du commit 3, corriger les remarques, puis relancer les portes si le code a changé
+- [ ] T083 Commiter `feat: give every external call a maximum duration` (nouveau comportement : refus du contrat actuel quand un service externe dépasse sa durée maximale), pousser (`git push -u origin 2d-c3-timeouts`) et ouvrir une demande de fusion vers `main` de `Clement-Garro/codeQualityExample`, avec les résultats des portes
+- [ ] T084 Faire relire la demande de fusion, corriger les remarques, puis l'intégrer à `main`. L'étape 2d est terminée quand elle est intégrée. Vérifier alors sur `main`, depuis le commit de départ noté dans `baseline.md` :
+  - `git diff <départ>..main -- tests/e2e/rental-journey.test.ts` est vide ;
   - les 13 tests d'intégration d'origine ont le même nombre de `request(app)` et de `expect(` ;
   - la suite complète est verte
 
@@ -330,24 +333,24 @@ la durée maximale du service, avec la réponse Q1 et la ligne `[WARN] external 
   de fusion intégrée à `main`, et la suivante part de `main` à jour.
   - US1+US2 a besoin de l'horloge injectée de l'US4.
   - US3 a besoin des ports asynchrones et de `Clock.wait` de US1+US2.
-- **Portes qualité (Phase 6)** : après la phase 5 ; T082 contient le commit 3.
+- **Portes qualité (Phase 6)** : après la phase 5 ; T083 contient le commit 3.
 
 ### Within Each Phase
 
 - Les tests de caractérisation sont verts avant tout changement. Les nouveaux tests sont écrits puis
-  **vérifiés en échec** (T011, T038, T062), avant l'implémentation, les vérifications, les portes, la
+  **vérifiés en échec** (T011, T039, T063), avant l'implémentation, les vérifications, les portes, la
   relecture humaine et la demande de fusion.
-- **Phase 4** : port `Clock` et horloges (T039), puis ports externes (T040), puis adaptateurs (T041),
-  puis registre (T042), puis cas d'utilisation (T043 à T045), puis routes (T046), puis assemblage (T047).
-- **Phase 5** : constantes (T063), puis `withMaximumDuration` (T064), puis ports (T065, T066), puis
-  décorateurs (T067), puis assemblage (T068).
+- **Phase 4** : port `Clock` et horloges (T040), puis ports externes (T041), puis adaptateurs (T042),
+  puis registre (T043), puis cas d'utilisation (T044 à T046), puis routes (T047), puis assemblage (T048).
+- **Phase 5** : constantes (T064), puis `withMaximumDuration` (T065), puis ports (T066, T067), puis
+  décorateurs (T068), puis assemblage (T069).
 
 ### Parallel Opportunities
 
 - **US4** : T006 à T010.
-- **US1+US2** : T025 à T037 (fichiers distincts ; T030, T031 et T034, T035 touchent les mêmes fichiers de
-  tests : à faire à la suite) ; T045 en parallèle de T043 et T044.
-- **US3** : T056 à T061.
+- **US1+US2** : T025 à T038 (fichiers distincts ; T030, T031 et T034, T035 touchent les mêmes fichiers de
+  tests : à faire à la suite) ; T046 en parallèle de T044 et T045.
+- **US3** : T057 à T062.
 
 ---
 

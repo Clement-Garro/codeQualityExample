@@ -36,7 +36,7 @@ des stations (environ 1,2 s, SC-008), mesurée avec `curl -w '%{time_total}'` su
 ## 2. Contrat inchangé (SC-004)
 
 ```bash
-git diff main -- tests/e2e            # vide à chaque commit
+git diff main -- tests/e2e            # vide pour rental-journey.test.ts ; concurrency.test.ts ajouté au commit 2
 git diff main -- tests/integration    # commit 1 : mise en place seulement (horloge de test) ; ensuite : ajouts seulement
 ```
 

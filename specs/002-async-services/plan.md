@@ -115,12 +115,13 @@ src/
 tests/
 ├── support/
 │   ├── fastClock.ts                         # supprimé (commit 1)
-│   ├── testClock.ts                         # nouveau : 1 ms par lecture (commit 1) ; + wait à saut automatique et mode manuel (commit 2)
+│   ├── testClock.ts                         # nouveau : 1 ms par lecture (commit 1) ; + wait à saut automatique et mode manuel, now() n'avance plus à la lecture (commit 2)
 │   ├── fakePaymentGateway.ts                # + réponses retenues (commit 2)
 │   └── portDoubles.ts                       # doublures asynchrones (commit 2), doublures muettes (commit 3)
 ├── unit/                                    # tests adaptés à l'asynchrone ; tests de concurrence (commit 2) ; tests des décorateurs (commit 3)
 ├── integration/rental-api.test.ts           # mise en place seulement (commit 1) ; mêmes requêtes et attentes
-└── e2e/rental-journey.test.ts               # inchangé
+├── e2e/rental-journey.test.ts               # inchangé
+└── e2e/concurrency.test.ts                  # nouveau (commit 2) : conflit de location en temps réel
 ```
 
 **Structure Decision** : celle de l'étape 2c est conservée. Les seuls ajouts sont
@@ -195,7 +196,7 @@ Design patterns utilisés, chacun avec le problème qu'il résout :
 | Unitaire – présentation | routes asynchrones ; rejet → 500 par défaut d'Express | cas d'utilisation doublés | `tests/unit/presentation/*.test.ts` |
 | Unitaire – assemblage | isolation de deux applications ; horloge injectée | horloge de test | `tests/unit/compositionRoot.test.ts` |
 | Intégration | contrat complet (13 tests inchangés) ; conflits HTTP concurrents ; consultation pendant un paiement retenu (SC-002) | horloge de test seulement | `tests/integration/rental-api.test.ts` (+ nouveaux fichiers de concurrence) |
-| End-to-end | parcours P1 en temps réel | aucune | `tests/e2e/rental-journey.test.ts` (inchangé) |
+| End-to-end | parcours P1 en temps réel ; conflit de location concurrent (US2) | aucune | `tests/e2e/rental-journey.test.ts` (inchangé), `tests/e2e/concurrency.test.ts` (commit 2) |
 | Performance | SC-001, SC-008 en temps réel | aucune | `pnpm load`, `curl` (quickstart) |
 | Mutation | tout `src/` sauf `src/index.ts` | n/a | `stryker.config.json` inchangé |
 
