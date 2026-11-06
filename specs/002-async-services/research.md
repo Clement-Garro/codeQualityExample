@@ -133,7 +133,8 @@ Chacune a été vérifiée sur le code de `main` au commit `1d6b753`.
   - **Commit 2 (US1+US2)** : l'horloge de test gagne `wait(ms)`. Par défaut, elle « saute » à l'échéance
     de la prochaine attente et la résout au tour suivant de la boucle d'événements, ce qui revient à
     avancer automatiquement. Les attentes concurrentes se résolvent dans l'ordre de leurs échéances. Un
-    mode manuel (`advance(ms)`) sert aux tests qui vérifient une latence ou une durée maximale.
+    mode manuel (`advance(ms)`) sert aux tests qui vérifient une latence ou une durée maximale. L'avance de
+    1 ms par lecture disparaît, puisque plus rien n'attend en boucle sur l'heure.
 - **Rationale** :
   - FR-017 impose l'US4 en premier, alors que l'attente active n'existe pas encore en asynchrone ;
     injecter l'horloge dans l'attente active livre l'US4 seule, sans changer de comportement ;

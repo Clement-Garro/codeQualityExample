@@ -145,6 +145,7 @@ commit : toutes les portes (quickstart, section 1).
 | VII : `ConsoleLogger` écrit avec `console.log` | Mêmes lignes de journal (FR-001) | Logger structuré : étape 2e |
 | Configuration : durées maximales et port en constantes, pas dans l'environnement | Clarification Q3 : constantes injectées, réglables par les tests | La lecture de l'environnement relève de l'étape 2e |
 | X et VI tant que le commit 2 (attente active) ou le commit 3 (durée maximale) ne sont pas intégrés | FR-017 impose l'ordre US4, US1+US2, US3 | Tout livrer en un commit mélangerait structure et comportement |
+| IX : zone et météo vides (`''`) ajoutées au contrat 1.1.0 | Clarification Q1 : pas de nouveau code HTTP quand la géolocalisation dépasse sa durée maximale ; la valeur n'apparaît qu'en cas de dépassement | Une erreur 503 serait une nouvelle réponse, ce qui change davantage le contrat ; garder `south`/`rain` serait une donnée fausse |
 | `any` conservé dans `tests/e2e/rental-journey.test.ts` | Le test E2E reste inchangé (FR-015) | Il sera réécrit à l'étape 3 |
 | Outillage : pas d'ESLint, de Prettier, de SonarQube ni d'intégration continue | Étapes 2f, 2g et 2h | Mélanger deux intentions |
 

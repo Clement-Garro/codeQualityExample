@@ -108,21 +108,21 @@ l'une après l'autre.
 ### User Story 3 - Chaque appel externe a une durée maximale (Priority: P2)
 
 Un appel à un service externe (paiement, géolocalisation, anti-fraude, notifications) qui ne répond pas
-dans un délai maximal est abandonné, et le service répond de façon définie au lieu d'attendre
+dans une durée maximale est abandonné, et le service répond de façon définie au lieu d'attendre
 indéfiniment (constitution, principe VI).
 
 **Why this priority**: c'est une exigence de la constitution reportée à l'étape 2d (dérogation de
 l'étape 2c). Avec les services simulés actuels, elle ne change rien en fonctionnement normal : leurs
-durées sont fixes et inférieures aux délais maximaux. Elle ajoute en revanche un nouveau cas d'échec,
+durées sont fixes et inférieures aux durées maximales. Elle ajoute en revanche un nouveau cas d'échec,
 donc un changement de comportement, livré dans son propre commit.
 
 **Independent Test**: remplacer un service externe par une doublure qui ne répond jamais et vérifier que
-la requête se termine dans le délai maximal avec la réponse définie.
+la requête se termine dans la durée maximale avec la réponse définie.
 
 **Acceptance Scenarios**:
 
 1. **Given** un service externe qui ne répond pas, **When** une requête l'appelle, **Then** la requête se
-   termine au plus tard à l'expiration du délai maximal de ce service, avec le refus du contrat actuel
+   termine au plus tard à l'expiration de la durée maximale de ce service, avec le refus du contrat actuel
    défini en FR-011, et aucune donnée n'est modifiée à moitié.
 2. **Given** des services externes qui répondent normalement, **When** une requête les appelle, **Then**
    la réponse est identique à celle d'aujourd'hui.
@@ -131,7 +131,7 @@ la requête se termine dans le délai maximal avec la réponse définie.
 
 ### User Story 4 - Les tests maîtrisent le temps sans l'attendre (Priority: P3)
 
-Un mainteneur teste les durées de location, les attentes des services simulés et les délais maximaux
+Un mainteneur teste les durées de location, les attentes des services simulés et les durées maximales
 sans attendre le temps réel et sans remplacer l'horloge globale du système : le temps est fourni aux
 composants qui en ont besoin, et les tests le font avancer eux-mêmes.
 
@@ -276,7 +276,7 @@ réelle et donne le même résultat à chaque exécution.
   et donne le même résultat sur 3 exécutions consécutives.
 - **SC-006**: Le score de mutation reste ≥ 90 % et la couverture des lignes et des branches reste à 100 %.
 - **SC-007**: Avec un service externe qui ne répond jamais, 100 % des requêtes concernées se terminent au
-  plus tard à l'expiration du délai maximal de ce service.
+  plus tard à l'expiration de la durée maximale de ce service.
 
 ## Assumptions
 
@@ -305,7 +305,7 @@ réelle et donne le même résultat à chaque exécution.
 | Performance | Les stations sont géolocalisées en même temps | Durée d'une consultation seule des stations | < 0,5 s (référence ≈ 1,2 s) |
 | Robustesse | Les entrées invalides restent refusées comme aujourd'hui | Tests de validation existants | 100 % verts |
 | Intégrité des données | Aucune location en double, aucun double débit, aucune station au-delà de sa capacité sous concurrence | Tests de concurrence (FR-016) | 0 incohérence |
-| Tolérance aux pannes | Un service externe qui ne répond pas ne bloque pas la requête | Durée d'une requête avec un service muet | ≤ délai maximal du service (FR-011) |
+| Tolérance aux pannes | Un service externe qui ne répond pas ne bloque pas la requête | Durée d'une requête avec un service muet | ≤ durée maximale du service (FR-011) |
 | Sécurité | Aucune nouvelle surface d'attaque | Routes exposées et entrées acceptées avant / après | Identiques |
 | Maintenabilité | Tests déterministes et rapides, seuils de la constitution | Mutation ; couverture ; durée de la suite | ≥ 90 % ; 100 % ; ≤ référence |
 

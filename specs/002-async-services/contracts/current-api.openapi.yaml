@@ -120,8 +120,8 @@ paths:
                   properties:
                     id: { type: integer }
                     name: { type: string }
-                    zone: { type: string, enum: [north, south, ""], description: "Vide si la géolocalisation dépasse sa durée maximale (2d)" }
-                    weather: { type: string, enum: [clear, rain, ""], description: "Vide si la géolocalisation dépasse sa durée maximale (2d)" }
+                    zone: { type: string, enum: [north, south, ""], description: "Vide si la géolocalisation dépasse sa durée maximale (2d). Peut casser un client qui valide strictement les valeurs : à rendre explicite dans le contrat REST de l'étape 3." }
+                    weather: { type: string, enum: [clear, rain, ""], description: "Vide si la géolocalisation dépasse sa durée maximale (2d). Peut casser un client qui valide strictement les valeurs : à rendre explicite dans le contrat REST de l'étape 3." }
                     free: { type: integer, description: Vélos disponibles }
                     electric: { type: integer, description: Vélos électriques disponibles }
                     slots: { type: integer, description: Capacité moins vélos présents (cassés et en maintenance compris) }
