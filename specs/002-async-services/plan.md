@@ -132,7 +132,7 @@ tests/
 | Commit (branche) | Contenu | Tests | Fin |
 |------------------|---------|-------|-----|
 | `refactor: inject the clock into simulated delays and tests` (`2d-c1-test-clock`) | `busyWait`, `simulateHttpCall` et les adaptateurs simulés reçoivent `Clock` ; `createApplication({ seed, clock })` | `testClock.ts` (1 ms par lecture) remplace `fastClock.ts` dans tous les tests ; intégration : mise en place seulement | plus aucun `spyOn(Date, 'now')` ni `Date.now()` hors `SystemClock` |
-| `refactor: wait for external services without blocking` (`2d-c2-async`) | ports externes et `Clock.wait` en `Promise` ; cas d'utilisation et routes asynchrones ; `OperationsInProgress` ; géolocalisations en même temps | tests adaptés ; tests de concurrence (FR-016) ; `testClock` avec saut automatique et mode manuel | `busyWait` supprimé ; SC-001, SC-002 et SC-008 mesurés |
+| `refactor: wait for external services without blocking` (`2d-c2-async`) | ports externes et `Clock.wait` en `Promise` ; cas d'utilisation et routes asynchrones ; `OperationsInProgress` ; géolocalisations en même temps | tests adaptés ; tests de concurrence (FR-016), dont `tests/e2e/concurrency.test.ts` en temps réel ; `testClock` avec saut automatique et mode manuel | `busyWait` supprimé ; SC-001, SC-002 et SC-008 mesurés |
 | `feat: give every external call a maximum duration` (`2d-c3-timeouts`) | décorateurs à durée maximale ; `FraudAssessment` ; zone et météo `''` ; journal des délais dépassés | décorateurs testés avec des doublures muettes ; réponses Q1 testées par cas d'utilisation et par HTTP | contrat 1.1.0 ; README et `docs/plan-refactoring.md` (cases 2d) |
 
 Avant le commit 1 : mesures de référence ([quickstart.md](quickstart.md), section 0). Après chaque
