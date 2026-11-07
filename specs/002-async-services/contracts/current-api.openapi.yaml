@@ -1,0 +1,180 @@
+openapi: 3.1.0
+info:
+  title: bike-rental-legacy (contrat actuel, à préserver)
+  version: 1.1.0
+  description: >
+    Contrat HTTP actuel (version 1.0.0 décrite dans specs/001-couche-hexagonales, implémentée sur
+    main au commit 1d6b753). L'étape 2d MUST le conserver (dérogation transitoire au principe IX de la
+    constitution), avec une seule évolution, livrée au commit 3 de 2d : zone et météo vides ('')
+    quand la géolocalisation d'une station dépasse sa durée maximale. Les conflits entre requêtes
+    concurrentes reçoivent les refus existants (409). Il n'est pas RESTful : le nouveau contrat relève de l'étape 3.
+    Les identifiants sont convertis avec Number() : "1" est accepté, une chaîne non numérique donne
+    « introuvable ». Un champ obligatoire absent, null, vide ou NaN donne 400 bad request.
+    Un JSON mal formé et une route inconnue reçoivent les réponses par défaut d'Express (400 et 404,
+    corps non JSON). Des données incohérentes donnent la réponse 500 par défaut d'Express.
+paths:
+  /rent:
+    post:
+      summary: Louer un vélo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, stationId]
+              properties:
+                userId: { type: [integer, string] }
+                stationId: { type: [integer, string] }
+                bikeId:
+                  description: Optionnel ; absent ou null = vélo le moins kilométré.
+                  type: [integer, string, "null"]
+      responses:
+        '200':
+          description: Location créée
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [msg, rentalId, bikeId, station, preAuth, ref]
+                properties:
+                  msg: { type: string, enum: [ok] }
+                  rentalId: { type: integer }
+                  bikeId: { type: integer }
+                  station: { type: string, description: Nom de la station }
+                  preAuth: { type: number, enum: [5, 7.5] }
+                  ref: { type: string, pattern: '^REF\d+$' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '402':
+          description: "msg = 'not enough credit' (crédit < 5) ou 'payment declined' (pré-autorisation refusée)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '403':
+          description: "msg = 'refused' (score de fraude ≥ 100)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '404':
+          description: "msg = 'no user' ou 'no station'"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '409':
+          description: "msg = 'no bike available' ou 'already renting'"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+  /return:
+    post:
+      summary: Rendre un vélo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rentalId, stationId]
+              properties:
+                rentalId: { type: [integer, string] }
+                stationId: { type: [integer, string] }
+      responses:
+        '200':
+          description: Location clôturée (même si la capture du paiement échoue)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [msg, rentalId, minutes, price, station, captured]
+                properties:
+                  msg: { type: string, enum: [ok] }
+                  rentalId: { type: integer }
+                  minutes: { type: integer }
+                  price: { type: number }
+                  station: { type: string }
+                  captured: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404':
+          description: "msg = 'no rental' ou 'no station'"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '409':
+          description: "msg = 'already returned' ou 'station full'"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+  /stations:
+    get:
+      summary: État des stations
+      responses:
+        '200':
+          description: Une entrée par station, dans l'ordre des données
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, name, zone, weather, free, electric, slots, bikes]
+                  properties:
+                    id: { type: integer }
+                    name: { type: string }
+                    zone: { type: string, enum: [north, south, ""], description: "Vide si la géolocalisation dépasse sa durée maximale (2d). Peut casser un client qui valide strictement les valeurs : à rendre explicite dans le contrat REST de l'étape 3." }
+                    weather: { type: string, enum: [clear, rain, ""], description: "Vide si la géolocalisation dépasse sa durée maximale (2d). Peut casser un client qui valide strictement les valeurs : à rendre explicite dans le contrat REST de l'étape 3." }
+                    free: { type: integer, description: Vélos disponibles }
+                    electric: { type: integer, description: Vélos électriques disponibles }
+                    slots: { type: integer, description: Capacité moins vélos présents (cassés et en maintenance compris) }
+                    bikes:
+                      description: Vélos disponibles et cassés, triés par kilométrage croissant
+                      type: array
+                      items:
+                        type: object
+                        required: [id, el, km]
+                        properties:
+                          id: { type: integer }
+                          el: { type: boolean }
+                          km: { type: integer }
+                          broken: { type: boolean, enum: [true], description: Présent seulement pour un vélo cassé }
+  /rentals/{id}:
+    get:
+      summary: Détail d'une location
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Location trouvée
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [msg, id, bikeId, minutes, price, estimate, open]
+                properties:
+                  msg: { type: string, enum: [ok] }
+                  id: { type: integer }
+                  bikeId: { type: integer }
+                  minutes: { type: integer, description: Durée en cours ou finale }
+                  price: { type: number }
+                  estimate: { type: number, description: Toujours égal à price (supprimé à l'étape 3) }
+                  open: { type: boolean }
+        '404':
+          description: "msg = 'no rental' (y compris pour un id non numérique)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+components:
+  schemas:
+    Message:
+      type: object
+      required: [msg]
+      properties:
+        msg: { type: string }
+  responses:
+    BadRequest:
+      description: "msg = 'bad request' (champ obligatoire absent, null, vide ou NaN)"
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Message' }
